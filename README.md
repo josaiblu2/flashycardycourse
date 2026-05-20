@@ -1,8 +1,22 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Flashy Cardy Course
+
+Aplicación web de flashcards: crear mazos, estudiar y seguir el progreso. Construida con Next.js 16, React 19, Clerk y shadcn/ui.
+
+## Documentación
+
+- **[Arquitectura](./docs/ARCHITECTURE.md)** — stack, estructura del repo, autenticación, UI, proxy y guía para replicar el proyecto desde cero.
+- [Índice de docs](./docs/README.md)
 
 ## Getting Started
 
-First, run the development server:
+Copy environment variables and configure Clerk:
+
+```bash
+cp .env.example .env.local
+# Edit .env.local with your Clerk keys from https://dashboard.clerk.com
+```
+
+Then run the development server:
 
 ```bash
 npm run dev
