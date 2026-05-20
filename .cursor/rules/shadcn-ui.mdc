@@ -1,0 +1,44 @@
+---
+alwaysApply: true
+---
+# shadcn/ui
+
+This project uses **shadcn/ui** for all UI elements. Do not introduce alternate component libraries (MUI, Chakra, raw unstyled primitives for standard controls, etc.).
+
+## Project setup
+
+shadcn is already configured. See [components.json](mdc:components.json) for style, aliases, and paths. UI components live under [components/ui/](mdc:components/ui/) and are imported via `@/components/ui/<name>`.
+
+Shared utilities: [lib/utils.ts](mdc:lib/utils.ts) (`cn()` for class merging).
+
+## When building UI
+
+1. Prefer existing components from `@/components/ui` before creating custom markup.
+2. Compose shadcn primitives rather than duplicating their styles.
+3. If a shadcn component is missing, install it (see below) instead of hand-rolling a substitute.
+
+## CLI commands
+
+If shadcn is not initialized (no `components.json`), run:
+
+```bash
+npx shadcn@latest init
+```
+
+To add a component that is not installed yet (example: button):
+
+```bash
+npx shadcn@latest add button
+```
+
+Replace `button` with the component name from the [shadcn docs](https://ui.shadcn.com/docs/components).
+
+## Examples
+
+```tsx
+// ✅ GOOD — use installed shadcn components
+import { Button } from "@/components/ui/button";
+
+// ❌ BAD — ad-hoc button when Button exists or can be added
+<button className="rounded-md bg-primary px-4 py-2">Save</button>
+```
