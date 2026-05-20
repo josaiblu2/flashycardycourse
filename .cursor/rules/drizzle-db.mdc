@@ -1,0 +1,50 @@
+---
+description: Database interactions must always use the Drizzle ORM schema and queries
+globs: **/*.ts,**/*.tsx
+alwaysApply: false
+---
+
+# Drizzle ORM Database Rules
+
+All database interactions **must** use the Drizzle schema defined in [db/schema.ts](mdc:db/schema.ts) and Drizzle's query API. Never use raw SQL strings or other ORMs.
+
+## Schema Reference
+
+Two tables are defined:
+
+- `decks` — `id`, `clerkUserId`, `name`, `description`, `createdAt`, `updatedAt`
+- `cards` — `id`, `deckId` (FK → `decks.id` cascade delete), `front`, `back`, `createdAt`, `updatedAt`
+
+## Query Patterns
+
+```typescript
+// ✅ GOOD — use drizzle schema + query builder
+import { db } from "@/db";
+import { decks, cards } from "@/db/schema";
+import { eq } from "drizzle-orm";
+
+// Select
+const userDecks = await db.select().from(decks).where(eq(decks.clerkUserId, userId));
+
+// Insert
+const [newDeck] = await db.insert(decks).values({ clerkUserId, name, description }).returning();
+
+// Update
+await db.update(decks).set({ name }).where(eq(decks.id, deckId));
+
+// Delete
+await db.delete(cards).where(eq(cards.deckId, deckId));
+```
+
+```typescript
+// ❌ BAD — raw SQL or non-drizzle queries
+const result = await pool.query("SELECT * FROM decks WHERE clerk_user_id = $1", [userId]);
+```
+
+## Rules
+
+- Always import tables from `@/db/schema`
+- Always import the `db` client from `@/db`
+- Use `eq`, `and`, `or`, etc. from `drizzle-orm` for conditions
+- Use `.returning()` after inserts/updates when you need the resulting row
+- Never bypass the schema with raw SQL strings
