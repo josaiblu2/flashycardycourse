@@ -31,8 +31,8 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col font-sans">
         <ClerkProvider appearance={{ theme: dark }}>
-          <header className="flex items-center justify-between gap-4 bg-black px-6 py-4">
-            <span className="text-lg font-bold text-white">
+          <header className="flex items-center justify-between gap-4 bg-card border-b border-border px-6 py-4">
+            <span className="text-lg font-bold text-card-foreground">
               Flashy Cardy Course
             </span>
             <div className="flex items-center gap-3">

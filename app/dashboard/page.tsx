@@ -4,6 +4,13 @@ import { db } from "@/db";
 import { decks } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 export default async function DashboardPage() {
   const { userId } = await auth();
@@ -39,27 +46,29 @@ export default async function DashboardPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {userDecks.map((deck) => (
-            <div
+            <Card
               key={deck.id}
-              className="rounded-xl border border-border bg-card p-5 flex flex-col gap-2 hover:border-primary/50 transition-colors"
+              className="flex flex-col hover:border-primary/50 transition-colors"
             >
-              <h2 className="font-semibold text-foreground truncate">
-                {deck.name}
-              </h2>
-              {deck.description && (
-                <p className="text-sm text-muted-foreground line-clamp-2">
-                  {deck.description}
+              <CardHeader className="pb-2">
+                <CardTitle className="truncate">{deck.name}</CardTitle>
+                {deck.description && (
+                  <CardDescription className="line-clamp-2">
+                    {deck.description}
+                  </CardDescription>
+                )}
+              </CardHeader>
+              <CardContent className="mt-auto">
+                <p className="text-xs text-muted-foreground">
+                  Created{" "}
+                  {new Intl.DateTimeFormat("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  }).format(new Date(deck.createdAt))}
                 </p>
-              )}
-              <p className="text-xs text-muted-foreground mt-auto pt-2">
-                Created{" "}
-                {new Intl.DateTimeFormat("en-US", {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                }).format(new Date(deck.createdAt))}
-              </p>
-            </div>
+              </CardContent>
+            </Card>
           ))}
         </div>
       )}
