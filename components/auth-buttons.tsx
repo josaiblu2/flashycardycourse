@@ -7,18 +7,12 @@ export function AuthButtons() {
   return (
     <>
       <SignInButton mode="modal">
-        <Button
-          size="lg"
-          className="h-10 border-0 bg-blue-500 px-5 text-white hover:bg-blue-600"
-        >
+        <Button size="lg" variant="outline">
           Sign In
         </Button>
       </SignInButton>
       <SignUpButton mode="modal">
-        <Button
-          size="lg"
-          className="h-10 border-0 bg-green-600 px-5 text-white hover:bg-green-700"
-        >
+        <Button size="lg">
           Sign Up
         </Button>
       </SignUpButton>
