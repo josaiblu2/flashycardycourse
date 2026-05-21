@@ -1,9 +1,16 @@
 ---
 alwaysApply: true
 ---
-# shadcn/ui
+# shadcn/ui — MANDATORY, NO EXCEPTIONS
 
-This project uses **shadcn/ui** for all UI elements. Do not introduce alternate component libraries (MUI, Chakra, raw unstyled primitives for standard controls, etc.).
+This project uses **shadcn/ui exclusively** for ALL UI elements. This is a hard rule with zero exceptions.
+
+- **NEVER** write raw HTML elements (`<button>`, `<input>`, `<select>`, `<dialog>`, etc.) when a shadcn component exists or can be installed.
+- **NEVER** create custom UI components from scratch. Every UI need must be satisfied by a shadcn/ui primitive or a composition of shadcn/ui primitives.
+- **NEVER** introduce alternate component libraries (MUI, Chakra, Radix primitives used directly, Headless UI, etc.).
+- **NO** inline styles or ad-hoc Tailwind utility classes used to recreate what a shadcn component already provides.
+
+If a required shadcn component is not yet installed, install it. There is no scenario where hand-rolling a substitute is acceptable.
 
 ## Project setup
 
@@ -11,11 +18,37 @@ shadcn is already configured. See [components.json](mdc:components.json) for sty
 
 Shared utilities: [lib/utils.ts](mdc:lib/utils.ts) (`cn()` for class merging).
 
-## When building UI
+## When building UI — mandatory checklist
 
-1. Prefer existing components from `@/components/ui` before creating custom markup.
-2. Compose shadcn primitives rather than duplicating their styles.
-3. If a shadcn component is missing, install it (see below) instead of hand-rolling a substitute.
+1. **Check first**: does `@/components/ui` already have what you need? Use it.
+2. **Install if missing**: run `npx shadcn@latest add <component>` — never hand-roll a substitute.
+3. **Compose**: build complex UI by composing shadcn primitives together.
+4. **Never invent**: if you find yourself writing a raw HTML element for a UI control, stop and find the shadcn equivalent.
+
+## Clerk authentication UI — strict requirements
+
+All Clerk-related authentication surfaces must follow these rules:
+
+- **Sign In / Sign Up buttons** must use the shadcn `<Button>` component from `@/components/ui/button`. Never use a raw `<button>` or Clerk's built-in button styling.
+- **Sign In / Sign Up flows** must open in a **Clerk modal** (`modal` mode). Never navigate to a dedicated sign-in or sign-up page. Configure Clerk with `appearance` props only for token-based theming — do not inject custom CSS or custom components into Clerk's UI slots.
+- The trigger for the Clerk modal must always be a shadcn `<Button>`.
+
+```tsx
+// ✅ GOOD — shadcn Button triggers Clerk modal
+import { useClerk } from "@clerk/nextjs";
+import { Button } from "@/components/ui/button";
+
+export function SignInButton() {
+  const { openSignIn } = useClerk();
+  return <Button onClick={() => openSignIn()}>Sign in</Button>;
+}
+
+// ❌ BAD — raw button
+<button onClick={() => openSignIn()}>Sign in</button>
+
+// ❌ BAD — navigating to a sign-in page instead of using a modal
+<Link href="/sign-in">Sign in</Link>
+```
 
 ## CLI commands
 
@@ -25,7 +58,7 @@ If shadcn is not initialized (no `components.json`), run:
 npx shadcn@latest init
 ```
 
-To add a component that is not installed yet (example: button):
+To add a component that is not yet installed (example: button):
 
 ```bash
 npx shadcn@latest add button
@@ -38,7 +71,11 @@ Replace `button` with the component name from the [shadcn docs](https://ui.shadc
 ```tsx
 // ✅ GOOD — use installed shadcn components
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 
-// ❌ BAD — ad-hoc button when Button exists or can be added
+// ❌ BAD — ad-hoc elements when shadcn equivalents exist or can be installed
 <button className="rounded-md bg-primary px-4 py-2">Save</button>
+<input className="border rounded px-2" />
+<div role="dialog">...</div>
 ```

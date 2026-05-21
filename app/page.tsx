@@ -1,7 +1,11 @@
 import { Show } from "@clerk/nextjs";
+import { auth } from "@clerk/nextjs/server";
+import { redirect } from "next/navigation";
 import { AuthButtons } from "@/components/auth-buttons";
 
-export default function Home() {
+export default async function Home() {
+  const { userId } = await auth();
+  if (userId) redirect("/dashboard");
   return (
     <main className="flex flex-1 flex-col items-center justify-center px-6">
       <div className="flex flex-col items-center gap-4 text-center">
