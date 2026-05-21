@@ -1,0 +1,85 @@
+---
+alwaysApply: true
+---
+
+# Clerk Authentication & Data Isolation
+
+All authentication must go through Clerk. Users must only ever access their own data.
+
+## Server-side auth
+
+In Server Components, Route Handlers, and Server Actions, always call `auth()` from `@clerk/nextjs/server`. Never trust a user ID from the request body, query params, URL segments, or client props.
+
+```typescript
+// ✅ GOOD — derive userId from the session
+import { auth } from "@clerk/nextjs/server";
+
+const { userId } = await auth();
+if (!userId) {
+  // Server Component: redirect to sign-in
+  redirect("/sign-in");
+  // Route Handler / Server Action: return 401
+  // return new Response("Unauthorized", { status: 401 });
+}
+```
+
+```typescript
+// ❌ BAD — never trust caller-supplied IDs
+async function getDecks(userId: string) { ... }  // userId came from the client
+```
+
+## Deck queries — always filter by clerkUserId
+
+Every read, update, and delete on the `decks` table must include a `clerkUserId` condition. Inserts must set `clerkUserId` from `auth()`. See [db/schema.ts](mdc:db/schema.ts) and [db/index.ts](mdc:db/index.ts).
+
+```typescript
+import { auth } from "@clerk/nextjs/server";
+import { db } from "@/db";
+import { decks } from "@/db/schema";
+import { and, eq } from "drizzle-orm";
+
+const { userId } = await auth();
+if (!userId) redirect("/sign-in");
+
+// ✅ Select — scoped to the authenticated user
+const userDecks = await db.select().from(decks).where(eq(decks.clerkUserId, userId));
+
+// ✅ Insert — clerkUserId from auth(), never from the client
+const [newDeck] = await db.insert(decks).values({ clerkUserId: userId, name, description }).returning();
+
+// ✅ Update — combine id + clerkUserId so users can't mutate another user's deck
+await db.update(decks).set({ name }).where(and(eq(decks.id, deckId), eq(decks.clerkUserId, userId)));
+
+// ✅ Delete — same pattern
+await db.delete(decks).where(and(eq(decks.id, deckId), eq(decks.clerkUserId, userId)));
+```
+
+## Card queries — scope through the owning deck
+
+`cards` has no `clerkUserId` column; ownership is established via the FK to `decks`. Always verify deck ownership before accessing cards.
+
+```typescript
+import { cards, decks } from "@/db/schema";
+import { and, eq } from "drizzle-orm";
+
+// ✅ GOOD — verify deck ownership in the same query
+const result = await db
+  .select({ card: cards })
+  .from(cards)
+  .innerJoin(decks, eq(cards.deckId, decks.id))
+  .where(and(eq(cards.deckId, deckId), eq(decks.clerkUserId, userId)));
+
+// ✅ GOOD — or check ownership before mutating
+const [deck] = await db.select().from(decks).where(and(eq(decks.id, deckId), eq(decks.clerkUserId, userId)));
+if (!deck) return new Response("Not found", { status: 404 });
+await db.delete(cards).where(eq(cards.id, cardId));
+```
+
+```typescript
+// ❌ BAD — querying cards without an ownership check on the parent deck
+await db.select().from(cards).where(eq(cards.deckId, deckId));
+```
+
+## Client components
+
+`useUser()` and `useAuth()` are only for UI state (showing names, toggling visible elements). Never use them to decide what data to fetch or render — that authorization must happen server-side.

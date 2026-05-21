@@ -1,0 +1,64 @@
+---
+description: Data access and mutation patterns — server components for reads, server actions for writes, Zod for validation
+alwaysApply: true
+---
+
+# Data Access & Mutation Patterns
+
+## Data Retrieval — Server Components only
+
+Never fetch data inside Client Components or Route Handlers for page-level reads.
+
+```tsx
+// ✅ GOOD — read in a Server Component
+export default async function DecksPage() {
+  const { userId } = await auth();
+  if (!userId) redirect("/sign-in");
+  const decks = await db.select().from(decksTable).where(eq(decksTable.clerkUserId, userId));
+  return <DeckList decks={decks} />;
+}
+
+// ❌ BAD — fetching inside a Client Component
+"use client";
+export function DeckList() {
+  const [decks, setDecks] = useState([]);
+  useEffect(() => { fetch("/api/decks").then(...) }, []);
+}
+```
+
+## Mutations — Server Actions only
+
+All inserts, updates, and deletes must use Server Actions (`"use server"`). Never use Route Handlers for mutations triggered from the UI.
+
+## Input Validation — Zod required, no FormData
+
+Every Server Action must:
+1. Accept a typed TypeScript argument (never `FormData`).
+2. Parse and validate that argument with a Zod schema before touching the database.
+
+```typescript
+// ✅ GOOD
+"use server";
+import { z } from "zod";
+
+const CreateDeckSchema = z.object({
+  name: z.string().min(1).max(100),
+  description: z.string().optional(),
+});
+
+type CreateDeckInput = z.infer<typeof CreateDeckSchema>;
+
+export async function createDeck(input: CreateDeckInput) {
+  const parsed = CreateDeckSchema.safeParse(input);
+  if (!parsed.success) throw new Error("Invalid input");
+  const { userId } = await auth();
+  if (!userId) throw new Error("Unauthorized");
+  await db.insert(decks).values({ clerkUserId: userId, ...parsed.data });
+}
+
+// ❌ BAD — raw FormData, no Zod validation
+export async function createDeck(formData: FormData) {
+  const name = formData.get("name") as string;
+  await db.insert(decks).values({ name });
+}
+```
