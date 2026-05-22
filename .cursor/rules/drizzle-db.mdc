@@ -1,9 +1,6 @@
 ---
-description: Database interactions must always use the Drizzle ORM schema and queries
-globs: **/*.ts,**/*.tsx
-alwaysApply: false
+alwaysApply: true
 ---
-
 # Drizzle ORM Database Rules
 
 All database interactions **must** use the Drizzle schema defined in [db/schema.ts](mdc:db/schema.ts) and Drizzle's query API. Never use raw SQL strings or other ORMs.

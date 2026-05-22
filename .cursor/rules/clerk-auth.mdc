@@ -16,8 +16,8 @@ import { auth } from "@clerk/nextjs/server";
 
 const { userId } = await auth();
 if (!userId) {
-  // Server Component: redirect to sign-in
-  redirect("/sign-in");
+  // Server Component: no /sign-in page — redirect to homepage where sign-in/sign-up buttons live
+  redirect("/");
   // Route Handler / Server Action: return 401
   // return new Response("Unauthorized", { status: 401 });
 }
@@ -39,7 +39,7 @@ import { decks } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
 
 const { userId } = await auth();
-if (!userId) redirect("/sign-in");
+if (!userId) redirect("/");
 
 // ✅ Select — scoped to the authenticated user
 const userDecks = await db.select().from(decks).where(eq(decks.clerkUserId, userId));

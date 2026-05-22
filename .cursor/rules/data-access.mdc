@@ -1,21 +1,85 @@
 ---
-description: Data access and mutation patterns — server components for reads, server actions for writes, Zod for validation
 alwaysApply: true
 ---
-
 # Data Access & Mutation Patterns
+
+## Query helpers — `db/queries/` is the only place for DB calls
+
+All Drizzle queries (selects, inserts, updates, deletes) must live in dedicated helper files under `db/queries/`. **Never** write a raw Drizzle query inline inside a Server Component, Server Action, or anywhere else in the app. Always call a helper from `db/queries/`.
+
+### File layout
+
+```
+db/
+  schema.ts
+  index.ts
+  queries/
+    decks.ts   ← all deck reads & writes
+    cards.ts   ← all card reads & writes
+```
+
+### Writing a query helper
+
+Query helpers are plain async functions that accept typed arguments. They own the Drizzle query and nothing else — no auth, no Zod, no redirects.
+
+```typescript
+// db/queries/decks.ts
+import { db } from "@/db";
+import { decks } from "@/db/schema";
+import { and, eq } from "drizzle-orm";
+
+export async function getDecksByUser(userId: string) {
+  return db.select().from(decks).where(eq(decks.clerkUserId, userId));
+}
+
+export async function getDeckByIdAndUser(deckId: number, userId: string) {
+  const [deck] = await db
+    .select()
+    .from(decks)
+    .where(and(eq(decks.id, deckId), eq(decks.clerkUserId, userId)));
+  return deck ?? null;
+}
+
+export async function createDeckRecord(userId: string, name: string, description?: string) {
+  const [deck] = await db
+    .insert(decks)
+    .values({ clerkUserId: userId, name, description })
+    .returning();
+  return deck;
+}
+
+export async function updateDeckRecord(deckId: number, userId: string, data: { name?: string; description?: string }) {
+  await db
+    .update(decks)
+    .set(data)
+    .where(and(eq(decks.id, deckId), eq(decks.clerkUserId, userId)));
+}
+
+export async function deleteDeckRecord(deckId: number, userId: string) {
+  await db
+    .delete(decks)
+    .where(and(eq(decks.id, deckId), eq(decks.clerkUserId, userId)));
+}
+```
 
 ## Data Retrieval — Server Components only
 
-Never fetch data inside Client Components or Route Handlers for page-level reads.
+Never fetch data inside Client Components or Route Handlers for page-level reads. Call a `db/queries/` helper directly from the Server Component.
 
 ```tsx
-// ✅ GOOD — read in a Server Component
+// ✅ GOOD — Server Component calls a query helper
+import { getDecksByUser } from "@/db/queries/decks";
+
 export default async function DecksPage() {
   const { userId } = await auth();
-  if (!userId) redirect("/sign-in");
-  const decks = await db.select().from(decksTable).where(eq(decksTable.clerkUserId, userId));
+  if (!userId) redirect("/");
+  const decks = await getDecksByUser(userId);
   return <DeckList decks={decks} />;
+}
+
+// ❌ BAD — inline Drizzle query in a Server Component
+export default async function DecksPage() {
+  const decks = await db.select().from(decksTable).where(eq(decksTable.clerkUserId, userId));
 }
 
 // ❌ BAD — fetching inside a Client Component
@@ -28,18 +92,21 @@ export function DeckList() {
 
 ## Mutations — Server Actions only
 
-All inserts, updates, and deletes must use Server Actions (`"use server"`). Never use Route Handlers for mutations triggered from the UI.
+All inserts, updates, and deletes must use Server Actions (`"use server"`). Never use Route Handlers for mutations triggered from the UI. The Server Action handles auth + Zod validation, then delegates the DB work to a `db/queries/` helper.
 
 ## Input Validation — Zod required, no FormData
 
 Every Server Action must:
 1. Accept a typed TypeScript argument (never `FormData`).
 2. Parse and validate that argument with a Zod schema before touching the database.
+3. Call a `db/queries/` helper — never write a raw Drizzle query inside the action.
 
 ```typescript
-// ✅ GOOD
+// ✅ GOOD — action validates, then calls a query helper
 "use server";
 import { z } from "zod";
+import { auth } from "@clerk/nextjs/server";
+import { createDeckRecord } from "@/db/queries/decks";
 
 const CreateDeckSchema = z.object({
   name: z.string().min(1).max(100),
@@ -53,6 +120,11 @@ export async function createDeck(input: CreateDeckInput) {
   if (!parsed.success) throw new Error("Invalid input");
   const { userId } = await auth();
   if (!userId) throw new Error("Unauthorized");
+  return createDeckRecord(userId, parsed.data.name, parsed.data.description);
+}
+
+// ❌ BAD — raw Drizzle query inside the action
+export async function createDeck(input: CreateDeckInput) {
   await db.insert(decks).values({ clerkUserId: userId, ...parsed.data });
 }
 
