@@ -1,11 +1,12 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { getDecksByUser } from "@/db/queries/decks";
 import { Button } from "@/components/ui/button";
 import {
   Card,
-  CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -41,29 +42,28 @@ export default async function DashboardPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {userDecks.map((deck) => (
-            <Card
-              key={deck.id}
-              className="flex flex-col hover:border-primary/50 transition-colors"
-            >
-              <CardHeader className="pb-2">
-                <CardTitle className="truncate">{deck.name}</CardTitle>
-                {deck.description && (
-                  <CardDescription className="line-clamp-2">
-                    {deck.description}
-                  </CardDescription>
-                )}
-              </CardHeader>
-              <CardContent className="mt-auto">
-                <p className="text-xs text-muted-foreground">
-                  Created{" "}
-                  {new Intl.DateTimeFormat("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                  }).format(new Date(deck.createdAt))}
-                </p>
-              </CardContent>
-            </Card>
+            <Link key={deck.id} href={`/deck/${deck.id}`} className="flex">
+              <Card className="flex flex-col w-full hover:border-primary/50 transition-colors cursor-pointer">
+                <CardHeader className="pb-2">
+                  <CardTitle className="truncate">{deck.name}</CardTitle>
+                  {deck.description && (
+                    <CardDescription className="line-clamp-2">
+                      {deck.description}
+                    </CardDescription>
+                  )}
+                </CardHeader>
+                <CardFooter className="mt-auto">
+                  <p className="text-xs text-muted-foreground">
+                    Updated{" "}
+                    {new Intl.DateTimeFormat("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    }).format(new Date(deck.updatedAt))}
+                  </p>
+                </CardFooter>
+              </Card>
+            </Link>
           ))}
         </div>
       )}
