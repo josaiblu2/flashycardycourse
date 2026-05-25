@@ -11,32 +11,25 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { updateDeck } from "@/app/actions/decks";
+import { createCard } from "@/app/actions/cards";
 
-interface EditDeckDialogProps {
+interface AddCardDialogProps {
   deckId: number;
-  initialName: string;
-  initialDescription?: string | null;
 }
 
-export function EditDeckDialog({
-  deckId,
-  initialName,
-  initialDescription,
-}: EditDeckDialogProps) {
+export function AddCardDialog({ deckId }: AddCardDialogProps) {
   const [open, setOpen] = useState(false);
-  const [name, setName] = useState(initialName);
-  const [description, setDescription] = useState(initialDescription ?? "");
+  const [front, setFront] = useState("");
+  const [back, setBack] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   function handleOpenChange(next: boolean) {
     if (!next) {
-      setName(initialName);
-      setDescription(initialDescription ?? "");
+      setFront("");
+      setBack("");
       setError(null);
     }
     setOpen(next);
@@ -46,59 +39,58 @@ export function EditDeckDialog({
     e.preventDefault();
     setError(null);
 
-    if (!name.trim()) {
-      setError("Deck name is required.");
+    if (!front.trim()) {
+      setError("Front side is required.");
+      return;
+    }
+    if (!back.trim()) {
+      setError("Back side is required.");
       return;
     }
 
     startTransition(async () => {
       try {
-        await updateDeck({
-          deckId,
-          name: name.trim(),
-          description: description.trim() || undefined,
-        });
+        await createCard({ deckId, front: front.trim(), back: back.trim() });
         setOpen(false);
       } catch {
-        setError("Failed to update deck. Please try again.");
+        setError("Failed to add card. Please try again.");
       }
     });
   }
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger render={<Button variant="outline" />}>
-        Edit Deck
+      <DialogTrigger render={<Button />}>
+        Add Card
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Edit Deck</DialogTitle>
+          <DialogTitle>Add Card</DialogTitle>
           <DialogDescription>
-            Update the title and description for this deck.
+            Enter the front and back content for your new flashcard.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 py-2">
           <div className="space-y-1.5">
-            <Label htmlFor="deck-name">Title</Label>
-            <Input
-              id="deck-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Deck title"
+            <Label htmlFor="new-card-front">Front</Label>
+            <Textarea
+              id="new-card-front"
+              value={front}
+              onChange={(e) => setFront(e.target.value)}
+              placeholder="Front side of the card"
               disabled={isPending}
-              maxLength={100}
+              rows={3}
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="deck-description">Description</Label>
+            <Label htmlFor="new-card-back">Back</Label>
             <Textarea
-              id="deck-description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Optional description"
+              id="new-card-back"
+              value={back}
+              onChange={(e) => setBack(e.target.value)}
+              placeholder="Back side of the card"
               disabled={isPending}
               rows={3}
-              maxLength={500}
             />
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}

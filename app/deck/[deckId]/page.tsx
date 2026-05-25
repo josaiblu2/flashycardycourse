@@ -3,7 +3,8 @@ import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { getDeckByIdAndUser } from "@/db/queries/decks";
 import { getCardsByDeckAndUser } from "@/db/queries/cards";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   Card,
   CardContent,
@@ -11,7 +12,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { EditDeckDialog } from "@/components/edit-deck-dialog";
+import { AddCardDialog } from "@/components/add-card-dialog";
 import { EditCardDialog } from "@/components/edit-card-dialog";
+import { DeleteCardDialog } from "@/components/delete-card-dialog";
 
 export default async function DeckPage({
   params,
@@ -33,9 +36,12 @@ export default async function DeckPage({
   return (
     <main className="flex flex-1 flex-col px-6 py-10 max-w-5xl mx-auto w-full">
       <div className="mb-8">
-        <Button variant="ghost" size="sm" asChild className="mb-4 -ml-2">
-          <Link href="/dashboard">← Back to Dashboard</Link>
-        </Button>
+        <Link
+          href="/dashboard"
+          className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "mb-4 -ml-2")}
+        >
+          ← Back to Dashboard
+        </Link>
 
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -50,12 +56,20 @@ export default async function DeckPage({
             </p>
           </div>
           <div className="flex items-center gap-2">
+            {cardRows.length > 0 && (
+              <Link
+                href={`/deck/${id}/study`}
+                className={cn(buttonVariants())}
+              >
+                Study
+              </Link>
+            )}
             <EditDeckDialog
               deckId={deck.id}
               initialName={deck.name}
               initialDescription={deck.description}
             />
-            <Button>Add Card</Button>
+            <AddCardDialog deckId={id} />
           </div>
         </div>
       </div>
@@ -66,7 +80,7 @@ export default async function DeckPage({
           <p className="text-muted-foreground mt-1 mb-6">
             Add your first card to start studying
           </p>
-          <Button>Add Card</Button>
+          <AddCardDialog deckId={id} />
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
@@ -89,13 +103,14 @@ export default async function DeckPage({
               <CardContent className="pb-2">
                 <p className="text-foreground">{card.back}</p>
               </CardContent>
-              <div className="flex justify-end px-6 pb-4">
+              <div className="flex justify-end items-start px-6 pb-4 gap-1">
                 <EditCardDialog
                   cardId={card.id}
                   deckId={id}
                   initialFront={card.front}
                   initialBack={card.back}
                 />
+                <DeleteCardDialog cardId={card.id} deckId={id} />
               </div>
             </Card>
           ))}

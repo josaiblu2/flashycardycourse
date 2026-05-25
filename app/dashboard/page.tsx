@@ -2,7 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getDecksByUser } from "@/db/queries/decks";
-import { Button } from "@/components/ui/button";
+import { CreateDeckDialog } from "@/components/create-deck-dialog";
 import {
   Card,
   CardDescription,
@@ -28,7 +28,7 @@ export default async function DashboardPage() {
             Manage your flashcard decks
           </p>
         </div>
-        <Button>New Deck</Button>
+        <CreateDeckDialog />
       </div>
 
       {userDecks.length === 0 ? (
@@ -37,7 +37,7 @@ export default async function DashboardPage() {
           <p className="text-muted-foreground mt-1 mb-6">
             Create your first deck to start studying
           </p>
-          <Button>Create Deck</Button>
+          <CreateDeckDialog triggerLabel="Create Deck" />
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

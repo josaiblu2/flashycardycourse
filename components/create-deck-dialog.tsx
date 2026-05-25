@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -14,29 +15,28 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { updateDeck } from "@/app/actions/decks";
+import { createDeck } from "@/app/actions/decks";
 
-interface EditDeckDialogProps {
-  deckId: number;
-  initialName: string;
-  initialDescription?: string | null;
+interface CreateDeckDialogProps {
+  triggerLabel?: string;
+  triggerVariant?: React.ComponentProps<typeof Button>["variant"];
 }
 
-export function EditDeckDialog({
-  deckId,
-  initialName,
-  initialDescription,
-}: EditDeckDialogProps) {
+export function CreateDeckDialog({
+  triggerLabel = "New Deck",
+  triggerVariant,
+}: CreateDeckDialogProps) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [name, setName] = useState(initialName);
-  const [description, setDescription] = useState(initialDescription ?? "");
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   function handleOpenChange(next: boolean) {
     if (!next) {
-      setName(initialName);
-      setDescription(initialDescription ?? "");
+      setName("");
+      setDescription("");
       setError(null);
     }
     setOpen(next);
@@ -53,35 +53,39 @@ export function EditDeckDialog({
 
     startTransition(async () => {
       try {
-        await updateDeck({
-          deckId,
+        const deck = await createDeck({
           name: name.trim(),
           description: description.trim() || undefined,
         });
         setOpen(false);
+        router.push(`/deck/${deck.id}`);
       } catch {
-        setError("Failed to update deck. Please try again.");
+        setError("Failed to create deck. Please try again.");
       }
     });
   }
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger render={<Button variant="outline" />}>
-        Edit Deck
+      <DialogTrigger
+        render={
+          <Button variant={triggerVariant} />
+        }
+      >
+        {triggerLabel}
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Edit Deck</DialogTitle>
+          <DialogTitle>Create Deck</DialogTitle>
           <DialogDescription>
-            Update the title and description for this deck.
+            Give your new deck a title and optional description.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 py-2">
           <div className="space-y-1.5">
-            <Label htmlFor="deck-name">Title</Label>
+            <Label htmlFor="new-deck-name">Title</Label>
             <Input
-              id="deck-name"
+              id="new-deck-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Deck title"
@@ -90,9 +94,9 @@ export function EditDeckDialog({
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="deck-description">Description</Label>
+            <Label htmlFor="new-deck-description">Description</Label>
             <Textarea
-              id="deck-description"
+              id="new-deck-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Optional description"
@@ -112,7 +116,7 @@ export function EditDeckDialog({
               Cancel
             </Button>
             <Button type="submit" disabled={isPending}>
-              {isPending ? "Saving…" : "Save Changes"}
+              {isPending ? "Creating…" : "Create Deck"}
             </Button>
           </DialogFooter>
         </form>

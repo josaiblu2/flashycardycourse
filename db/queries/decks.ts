@@ -40,7 +40,15 @@ export async function updateDeckRecord(
 }
 
 export async function deleteDeckRecord(deckId: number, userId: string) {
-  await db
-    .delete(decks)
+  const [deck] = await db
+    .select({ id: decks.id })
+    .from(decks)
     .where(and(eq(decks.id, deckId), eq(decks.clerkUserId, userId)));
+  if (!deck) return null;
+
+  const [deleted] = await db
+    .delete(decks)
+    .where(and(eq(decks.id, deckId), eq(decks.clerkUserId, userId)))
+    .returning();
+  return deleted ?? null;
 }
