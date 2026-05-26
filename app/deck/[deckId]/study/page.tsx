@@ -6,6 +6,7 @@ import { getCardsByDeckAndUser } from "@/db/queries/cards";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { AddCardDialog } from "@/components/add-card-dialog";
+import { GenerateCardsWithAIButton } from "@/components/generate-cards-with-ai-button";
 import { StudyFlashcards } from "@/components/study-flashcards";
 
 export default async function StudyPage({
@@ -40,15 +41,22 @@ export default async function StudyPage({
           ← Back to deck
         </Link>
 
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">
-            Study: {deck.name}
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            {studyCards.length === 0
-              ? "Add cards to this deck before studying"
-              : `Review ${studyCards.length} ${studyCards.length === 1 ? "card" : "cards"}`}
-          </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">
+              Study: {deck.name}
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              {studyCards.length === 0
+                ? "Add cards to this deck before studying"
+                : `Review ${studyCards.length} ${studyCards.length === 1 ? "card" : "cards"}`}
+            </p>
+          </div>
+          <GenerateCardsWithAIButton
+            deckId={id}
+            deckName={deck.name}
+            deckDescription={deck.description}
+          />
         </div>
       </div>
 
