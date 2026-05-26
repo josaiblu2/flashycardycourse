@@ -1,0 +1,114 @@
+---
+alwaysApply: true
+---
+
+# Clerk Billing — Plans, Features & Access Control
+
+This app uses **Clerk Billing (B2C)** for subscriptions and payments. Plans and Features are configured in the [Clerk Dashboard](https://dashboard.clerk.com/~/billing/plans). Gate premium functionality server-side; use client `<Show>` only for UI visibility.
+
+> Billing is in Beta — pin Clerk SDK and `clerk-js` versions to avoid breaking API changes.
+
+## Plans & Features (this app)
+
+| Plan slug     | Features                                              |
+|---------------|-------------------------------------------------------|
+| `free_user`   | `3_deck_limit` — user may create **at most 3 decks** |
+| `pro`         | `unlimited_decks`, `ai_flashcard_generation`         |
+
+Use **Feature** checks for entitlements (preferred). Use **Plan** checks when gating entire tiers.
+
+```typescript
+// Feature checks (preferred)
+has({ feature: "unlimited_decks" })
+has({ feature: "3_deck_limit" })          // free tier — enforce deck count cap
+has({ feature: "ai_flashcard_generation" })
+
+// Plan checks
+has({ plan: "free_user" })
+has({ plan: "pro" })
+```
+
+## Server-side access — `has()` (required for enforcement)
+
+In Server Components, Server Actions, and Route Handlers, destructure `has` from `auth()` alongside `userId`. Never rely on client-only checks to allow mutations or data access.
+
+```typescript
+import { auth } from "@clerk/nextjs/server";
+
+const { userId, has } = await auth();
+if (!userId) throw new Error("Unauthorized");
+
+// ✅ Deck creation — enforce free tier limit server-side
+const canCreateUnlimited = has({ feature: "unlimited_decks" });
+if (!canCreateUnlimited) {
+  const deckCount = await getDeckCountByUser(userId);
+  if (deckCount >= 3) throw new Error("Deck limit reached. Upgrade to Pro.");
+}
+
+// ✅ AI flashcard generation — pro feature only
+if (!has({ feature: "ai_flashcard_generation" })) {
+  throw new Error("AI generation requires a Pro subscription.");
+}
+```
+
+```typescript
+// ❌ BAD — gating mutations only in the client
+"use client";
+if (!userHasPro) createDeck(...);
+```
+
+Combine with [clerk-auth.mdc](mdc:.cursor/rules/clerk-auth.mdc): always derive `userId` from `auth()`, never from the client.
+
+## Client UI — `<Show>` component
+
+Use `<Show>` from `@clerk/nextjs` to show/hide UI (upgrade prompts, Pro buttons). Always provide a `fallback` for locked content.
+
+```tsx
+import { Show } from "@clerk/nextjs";
+import { Button } from "@/components/ui/button";
+
+<Show
+  when={{ feature: "ai_flashcard_generation" }}
+  fallback={<Button variant="outline" asChild><Link href="/pricing">Upgrade to Pro</Link></Button>}
+>
+  <GenerateWithAIButton />
+</Show>
+```
+
+```tsx
+<Show
+  when={{ plan: "pro" }}
+  fallback={<p>Pro subscribers only.</p>}
+>
+  <ProOnlyContent />
+</Show>
+```
+
+## Pricing page
+
+Use Clerk's `<PricingTable />` on a dedicated pricing route. Wrap layout with shadcn/Tailwind — do not use raw inline styles.
+
+```tsx
+// app/pricing/page.tsx
+import { PricingTable } from "@clerk/nextjs";
+
+export default function PricingPage() {
+  return (
+    <div className="mx-auto max-w-3xl px-4 py-8">
+      <PricingTable />
+    </div>
+  );
+}
+```
+
+Sign-in/up triggers must remain shadcn `<Button>` + Clerk modal per [shadcn-ui.mdc](mdc:.cursor/rules/shadcn-ui.mdc).
+
+## Where to enforce what
+
+| Capability              | Feature to check              | Enforce in                          |
+|-------------------------|-------------------------------|-------------------------------------|
+| Create deck (≤3 free)   | `unlimited_decks` or count    | Server Action before insert         |
+| Unlimited decks         | `unlimited_decks`             | Server Action before insert         |
+| AI flashcard generation | `ai_flashcard_generation`   | Server Action + hide UI with `<Show>` |
+
+Free users implicitly have `3_deck_limit` via the `free_user` plan — check `unlimited_decks` to skip the cap, or verify deck count when the feature is absent.

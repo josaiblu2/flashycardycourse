@@ -15,6 +15,7 @@ import { EditDeckDialog } from "@/components/edit-deck-dialog";
 import { AddCardDialog } from "@/components/add-card-dialog";
 import { EditCardDialog } from "@/components/edit-card-dialog";
 import { DeleteCardDialog } from "@/components/delete-card-dialog";
+import { DeleteDeckDialog } from "@/components/delete-deck-dialog";
 
 export default async function DeckPage({
   params,
@@ -70,6 +71,11 @@ export default async function DeckPage({
               initialDescription={deck.description}
             />
             <AddCardDialog deckId={id} />
+            <DeleteDeckDialog
+              deckId={id}
+              deckName={deck.name}
+              cardCount={cardRows.length}
+            />
           </div>
         </div>
       </div>
