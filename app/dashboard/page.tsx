@@ -1,8 +1,11 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { getDecksByUser } from "@/db/queries/decks";
-import { CreateDeckDialog } from "@/components/create-deck-dialog";
+import { Sparkles } from "lucide-react";
+import { FREE_DECK_LIMIT, getDecksByUser } from "@/db/queries/decks";
+import { CreateDeckAction } from "@/components/create-deck-action";
+import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardDescription,
@@ -12,10 +15,13 @@ import {
 } from "@/components/ui/card";
 
 export default async function DashboardPage() {
-  const { userId } = await auth();
+  const { userId, has } = await auth();
   if (!userId) redirect("/");
 
   const userDecks = await getDecksByUser(userId);
+  const canCreateUnlimited = has({ feature: "unlimited_decks" });
+  const atDeckLimit =
+    !canCreateUnlimited && userDecks.length >= FREE_DECK_LIMIT;
 
   return (
     <main className="flex flex-1 flex-col px-6 py-10 max-w-5xl mx-auto w-full">
@@ -26,10 +32,36 @@ export default async function DashboardPage() {
           </h1>
           <p className="text-muted-foreground mt-1">
             Manage your flashcard decks
+            {!canCreateUnlimited && (
+              <span>
+                {" "}
+                · {userDecks.length} / {FREE_DECK_LIMIT} decks
+              </span>
+            )}
           </p>
         </div>
-        <CreateDeckDialog />
+        <CreateDeckAction atDeckLimit={atDeckLimit} />
       </div>
+
+      {atDeckLimit && (
+        <Alert className="mb-6">
+          <Sparkles />
+          <AlertTitle>Deck limit reached</AlertTitle>
+          <AlertDescription>
+            You&apos;ve used all {FREE_DECK_LIMIT} free decks. Upgrade to Pro to
+            create unlimited decks and generate flashcards with AI.
+          </AlertDescription>
+          <AlertAction>
+            <Button
+              size="sm"
+              nativeButton={false}
+              render={<Link href="/pricing" />}
+            >
+              Upgrade to Pro
+            </Button>
+          </AlertAction>
+        </Alert>
+      )}
 
       {userDecks.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-20 text-center">
@@ -37,7 +69,7 @@ export default async function DashboardPage() {
           <p className="text-muted-foreground mt-1 mb-6">
             Create your first deck to start studying
           </p>
-          <CreateDeckDialog triggerLabel="Create Deck" />
+          <CreateDeckAction atDeckLimit={atDeckLimit} triggerLabel="Create Deck" />
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

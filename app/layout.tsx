@@ -3,6 +3,7 @@ import { Poppins } from "next/font/google";
 import { ClerkProvider, Show, UserButton } from "@clerk/nextjs";
 import { dark } from "@clerk/ui/themes";
 import { AuthButtons } from "@/components/auth-buttons";
+import { AccountLevelBadge } from "@/components/account-level-badge";
 import "./globals.css";
 
 const poppins = Poppins({
@@ -40,7 +41,10 @@ export default function RootLayout({
                 <AuthButtons />
               </Show>
               <Show when="signed-in">
-                <UserButton />
+                <div className="flex items-center gap-3">
+                  <AccountLevelBadge />
+                  <UserButton />
+                </div>
               </Show>
             </div>
           </header>

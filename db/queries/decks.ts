@@ -1,9 +1,19 @@
 import { db } from "@/db";
 import { decks } from "@/db/schema";
-import { and, eq } from "drizzle-orm";
+import { and, count, eq } from "drizzle-orm";
+
+export const FREE_DECK_LIMIT = 3;
 
 export async function getDecksByUser(userId: string) {
   return db.select().from(decks).where(eq(decks.clerkUserId, userId));
+}
+
+export async function getDeckCountByUser(userId: string) {
+  const [result] = await db
+    .select({ count: count() })
+    .from(decks)
+    .where(eq(decks.clerkUserId, userId));
+  return result?.count ?? 0;
 }
 
 export async function getDeckByIdAndUser(deckId: number, userId: string) {

@@ -59,8 +59,12 @@ export function CreateDeckDialog({
         });
         setOpen(false);
         router.push(`/deck/${deck.id}`);
-      } catch {
-        setError("Failed to create deck. Please try again.");
+      } catch (err) {
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to create deck. Please try again."
+        );
       }
     });
   }
