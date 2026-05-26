@@ -1,0 +1,91 @@
+---
+alwaysApply: true
+---
+# Vercel AI SDK — Flashcard Generation
+
+This app uses the [`ai`](https://sdk.vercel.ai) npm package to call OpenAI for **AI flashcard generation** (Pro feature). All AI calls run **server-side only** — never from Client Components or Route Handlers triggered by the UI.
+
+## Environment
+
+Set `OPENAI_API_KEY` in `.env.local`. Never expose it via `NEXT_PUBLIC_*`.
+
+## Structured output — array of flashcards
+
+Use `generateText` with `Output.object` and a Zod schema. The model must return an object with a `cards` array; each item has `front` and `back` (matching [db/schema.ts](mdc:db/schema.ts)).
+
+```typescript
+import { generateText, Output } from "ai";
+import { z } from "zod";
+
+const GeneratedFlashcardsSchema = z.object({
+  cards: z.array(
+    z.object({
+      front: z.string().min(1),
+      back: z.string().min(1),
+    }),
+  ),
+});
+
+export async function generateFlashcards(topic: string, count: number) {
+  const { output } = await generateText({
+    model: "openai/gpt-5.3-chat",
+    output: Output.object({
+      schema: GeneratedFlashcardsSchema,
+    }),
+    prompt: `Generate exactly ${count} flashcards about: ${topic}. Put a concise question or term on the front and the answer on the back. Return only the structured object.`,
+  });
+
+  if (output.cards.length !== count) {
+    throw new Error("AI returned an unexpected number of cards");
+  }
+
+  return output.cards;
+}
+```
+
+Put pure generation logic in `lib/ai/` (no auth, no DB). Keep the Zod **input** schema and orchestration in a Server Action under [app/actions/](mdc:app/actions/).
+
+## Server Action pattern
+
+Follow [data-access.mdc](mdc:.cursor/rules/data-access.mdc) and [clerk-billing.mdc](mdc:.cursor/rules/clerk-billing.mdc):
+
+1. Validate typed input with Zod (`deckId`, `topic`, `count`).
+2. `auth()` — require `userId` and `has({ feature: "ai_flashcard_generation" })`.
+3. Call `generateFlashcards()` from `lib/ai/`.
+4. Persist each card via [db/queries/cards.ts](mdc:db/queries/cards.ts) — never inline Drizzle in the action.
+5. `revalidatePath` for the deck page.
+
+```typescript
+// ✅ GOOD — action validates, gates Pro, delegates AI + DB
+const { userId, has } = await auth();
+if (!userId) throw new Error("Unauthorized");
+if (!has({ feature: "ai_flashcard_generation" })) {
+  throw new Error("AI generation requires a Pro subscription.");
+}
+
+const generated = await generateFlashcards(parsed.data.topic, parsed.data.count);
+for (const card of generated) {
+  await createCardRecord(parsed.data.deckId, userId, card);
+}
+```
+
+```typescript
+// ❌ BAD — AI call in a Client Component or ungated action
+"use client";
+const cards = await generateFlashcards(topic, 10);
+
+// ❌ BAD — trusting client-supplied userId or skipping feature check
+```
+
+## UI
+
+Hide the generate control with Clerk `<Show when={{ feature: "ai_flashcard_generation" }}>` and a pricing fallback. Trigger must be a shadcn `<Button>` per [shadcn-ui.mdc](mdc:.cursor/rules/shadcn-ui.mdc).
+
+## Rules summary
+
+| Concern | Where |
+|---------|--------|
+| OpenAI call + output schema | `lib/ai/` |
+| Input Zod, auth, billing, revalidate | Server Action in `app/actions/` |
+| Insert cards | `db/queries/cards.ts` |
+| Pro entitlement | `has({ feature: "ai_flashcard_generation" })` server-side |
