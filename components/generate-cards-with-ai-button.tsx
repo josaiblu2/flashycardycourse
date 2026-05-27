@@ -15,6 +15,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Tooltip,
@@ -23,6 +30,16 @@ import {
 } from "@/components/ui/tooltip";
 import { updateDeck } from "@/app/actions/decks";
 import { generateCardsWithAI } from "@/app/actions/generate-cards";
+import {
+  CARD_LANGUAGE_OPTIONS,
+  DEFAULT_GENERATION_OPTIONS,
+  FLASHCARD_FORMAT_OPTIONS,
+  FLASHCARD_LEVEL_OPTIONS,
+  type CardLanguage,
+  type FlashcardFormat,
+  type FlashcardLevel,
+  type GenerateCardsOptions,
+} from "@/lib/ai/generation-context";
 import { getGenerateCardsWithAIDisabledState } from "@/lib/ai/generate-cards-button-state";
 
 interface GenerateCardsWithAIButtonProps {
@@ -70,9 +87,19 @@ function GenerateCardsWithAIProButton({
 }: GenerateCardsWithAIButtonProps) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
-  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [name, setName] = useState(deckName);
   const [description, setDescription] = useState(deckDescription ?? "");
+  const [language, setLanguage] = useState<CardLanguage>(
+    DEFAULT_GENERATION_OPTIONS.language
+  );
+  const [customLanguage, setCustomLanguage] = useState("");
+  const [level, setLevel] = useState<FlashcardLevel>(
+    DEFAULT_GENERATION_OPTIONS.level
+  );
+  const [format, setFormat] = useState<FlashcardFormat>(
+    DEFAULT_GENERATION_OPTIONS.format
+  );
   const [isPending, startTransition] = useTransition();
 
   const { disabled, reason, tooltipMessage } = getGenerateCardsWithAIDisabledState({
@@ -81,12 +108,46 @@ function GenerateCardsWithAIProButton({
     deckDescription,
   });
 
-  function runGeneration() {
+  function resetDialogFields() {
+    setName(deckName);
+    setDescription(deckDescription ?? "");
+    setLanguage(DEFAULT_GENERATION_OPTIONS.language);
+    setCustomLanguage("");
+    setLevel(DEFAULT_GENERATION_OPTIONS.level);
+    setFormat(DEFAULT_GENERATION_OPTIONS.format);
+    setError(null);
+  }
+
+  function openGenerateDialog() {
+    resetDialogFields();
+    setDialogOpen(true);
+  }
+
+  function handleDialogOpenChange(next: boolean) {
+    if (!next) {
+      resetDialogFields();
+    }
+    setDialogOpen(next);
+  }
+
+  function buildOptions(): GenerateCardsOptions {
+    return {
+      language,
+      level,
+      format,
+      ...(language === "other" && customLanguage.trim()
+        ? { customLanguage: customLanguage.trim() }
+        : {}),
+    };
+  }
+
+  function runGeneration(options: GenerateCardsOptions) {
     setError(null);
 
     startTransition(async () => {
       try {
-        await generateCardsWithAI({ deckId });
+        await generateCardsWithAI({ deckId, options });
+        setDialogOpen(false);
         router.refresh();
       } catch (err) {
         const message =
@@ -99,28 +160,11 @@ function GenerateCardsWithAIProButton({
   }
 
   function handleGenerateClick() {
-    if (disabled) return;
-    setError(null);
-    runGeneration();
+    if (reason === "generating") return;
+    openGenerateDialog();
   }
 
-  function openDetailsDialog() {
-    setName(deckName);
-    setDescription(deckDescription ?? "");
-    setError(null);
-    setDetailsOpen(true);
-  }
-
-  function handleDetailsOpenChange(next: boolean) {
-    if (!next) {
-      setName(deckName);
-      setDescription(deckDescription ?? "");
-      setError(null);
-    }
-    setDetailsOpen(next);
-  }
-
-  function handleDetailsSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
 
@@ -132,6 +176,20 @@ function GenerateCardsWithAIProButton({
       setError("Deck description is required for AI generation.");
       return;
     }
+    if (language === "other" && !customLanguage.trim()) {
+      setError("Please specify the language for your flashcards.");
+      return;
+    }
+
+    const options = buildOptions();
+    const deckChanged =
+      name.trim() !== deckName.trim() ||
+      description.trim() !== (deckDescription?.trim() ?? "");
+
+    if (!deckChanged) {
+      runGeneration(options);
+      return;
+    }
 
     startTransition(async () => {
       try {
@@ -140,8 +198,8 @@ function GenerateCardsWithAIProButton({
           name: name.trim(),
           description: description.trim(),
         });
-        setDetailsOpen(false);
-        await generateCardsWithAI({ deckId });
+        await generateCardsWithAI({ deckId, options });
+        setDialogOpen(false);
         router.refresh();
       } catch (err) {
         const message =
@@ -173,7 +231,7 @@ function GenerateCardsWithAIProButton({
           reason === "missing-both" ||
           reason === "missing-title" ||
           reason === "missing-description"
-            ? openDetailsDialog
+            ? openGenerateDialog
             : undefined
         }
       >
@@ -187,29 +245,28 @@ function GenerateCardsWithAIProButton({
     <>
       <div className="flex flex-col items-end gap-1">
         {wrappedGenerateButton}
-        {error && !detailsOpen && (
+        {error && !dialogOpen && (
           <p className="text-sm text-destructive text-right max-w-xs">{error}</p>
         )}
       </div>
 
-      <Dialog open={detailsOpen} onOpenChange={handleDetailsOpenChange}>
-        <DialogContent className="sm:max-w-md">
+      <Dialog open={dialogOpen} onOpenChange={handleDialogOpenChange}>
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Complete deck details</DialogTitle>
+            <DialogTitle>Generate flashcards with AI</DialogTitle>
             <DialogDescription>
-              AI uses your deck title and description to create relevant
-              flashcards. Fill in both fields for better results before
-              generating.
+              Set your topic, language, and card style. Better details produce
+              more accurate flashcards.
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleDetailsSubmit} className="space-y-4 py-2">
+          <form onSubmit={handleSubmit} className="space-y-4 py-2">
             <div className="space-y-1.5">
               <Label htmlFor="ai-deck-name">Title</Label>
               <Input
                 id="ai-deck-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Spanish vocabulary — travel phrases"
+                placeholder="e.g. Dental terminology, Roman history, Japanese travel phrases"
                 disabled={isPending}
                 maxLength={100}
               />
@@ -220,18 +277,101 @@ function GenerateCardsWithAIProButton({
                 id="ai-deck-description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Describe the topic, level, and what you want to learn"
+                placeholder="Describe what to learn, scope, and any notes (e.g. beginner level, focus on anatomy)"
                 disabled={isPending}
                 rows={3}
                 maxLength={500}
               />
             </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="ai-card-language">Card language</Label>
+                <Select
+                  value={language}
+                  onValueChange={(value) => setLanguage(value as CardLanguage)}
+                  disabled={isPending}
+                >
+                  <SelectTrigger id="ai-card-language" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CARD_LANGUAGE_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="ai-card-level">Level</Label>
+                <Select
+                  value={level}
+                  onValueChange={(value) => setLevel(value as FlashcardLevel)}
+                  disabled={isPending}
+                >
+                  <SelectTrigger id="ai-card-level" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {FLASHCARD_LEVEL_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {language === "other" && (
+              <div className="space-y-1.5">
+                <Label htmlFor="ai-custom-language">Custom language</Label>
+                <Input
+                  id="ai-custom-language"
+                  value={customLanguage}
+                  onChange={(e) => setCustomLanguage(e.target.value)}
+                  placeholder="e.g. Catalan, Arabic, Dutch"
+                  disabled={isPending}
+                  maxLength={50}
+                />
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <Label htmlFor="ai-card-format">Card format</Label>
+              <Select
+                value={format}
+                onValueChange={(value) => setFormat(value as FlashcardFormat)}
+                disabled={isPending}
+              >
+                <SelectTrigger id="ai-card-format" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {FLASHCARD_FORMAT_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {
+                  FLASHCARD_FORMAT_OPTIONS.find((option) => option.value === format)
+                    ?.description
+                }
+              </p>
+            </div>
+
             {error && <p className="text-sm text-destructive">{error}</p>}
             <DialogFooter>
               <Button
                 type="button"
                 variant="ghost"
-                onClick={() => handleDetailsOpenChange(false)}
+                onClick={() => handleDialogOpenChange(false)}
                 disabled={isPending}
               >
                 Cancel
@@ -240,13 +380,13 @@ function GenerateCardsWithAIProButton({
                 <DisabledButtonTooltip tooltipMessage="Generating flashcards. Please wait…">
                   <Button type="submit" disabled data-icon="inline-start">
                     <Sparkles />
-                    Saving & generating…
+                    Generating…
                   </Button>
                 </DisabledButtonTooltip>
               ) : (
                 <Button type="submit" data-icon="inline-start">
                   <Sparkles />
-                  Save & generate cards
+                  Generate cards
                 </Button>
               )}
             </DialogFooter>

@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { decks } from "@/db/schema";
-import { and, count, eq } from "drizzle-orm";
+import { and, count, eq, inArray } from "drizzle-orm";
 
 export const FREE_DECK_LIMIT = 3;
 
@@ -61,4 +61,20 @@ export async function deleteDeckRecord(deckId: number, userId: string) {
     .where(and(eq(decks.id, deckId), eq(decks.clerkUserId, userId)))
     .returning();
   return deleted ?? null;
+}
+
+export async function deleteDecksByUserId(userId: string) {
+  return db.delete(decks).where(eq(decks.clerkUserId, userId)).returning();
+}
+
+export async function getDeckCountsByUserIds(userIds: string[]) {
+  if (userIds.length === 0) return new Map<string, number>();
+
+  const rows = await db
+    .select({ clerkUserId: decks.clerkUserId, deckCount: count() })
+    .from(decks)
+    .where(inArray(decks.clerkUserId, userIds))
+    .groupBy(decks.clerkUserId);
+
+  return new Map(rows.map((row) => [row.clerkUserId, row.deckCount]));
 }

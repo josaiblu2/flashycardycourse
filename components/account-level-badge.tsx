@@ -1,15 +1,15 @@
-import { auth } from "@clerk/nextjs/server";
+"use client";
+
+import { Show } from "@clerk/nextjs";
 import { Badge } from "@/components/ui/badge";
 
-export async function AccountLevelBadge() {
-  const { userId, has } = await auth();
-  if (!userId) return null;
-
-  const isPro = has({ plan: "pro" });
-
+export function AccountLevelBadge() {
   return (
-    <Badge variant={isPro ? "default" : "secondary"}>
-      {isPro ? "Pro" : "Free"}
-    </Badge>
+    <Show
+      when={{ plan: "pro" }}
+      fallback={<Badge variant="secondary">Free</Badge>}
+    >
+      <Badge variant="default">Pro</Badge>
+    </Show>
   );
 }

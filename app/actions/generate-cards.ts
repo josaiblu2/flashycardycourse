@@ -5,12 +5,17 @@ import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 import { getDeckByIdAndUser } from "@/db/queries/decks";
 import { createCardRecord } from "@/db/queries/cards";
+import {
+  buildGenerationContext,
+  GenerateCardsOptionsSchema,
+} from "@/lib/ai/generation-context";
 import { generateFlashcards } from "@/lib/ai/generate-flashcards";
 
 const CARD_COUNT = 20;
 
 const GenerateCardsSchema = z.object({
   deckId: z.number().int().positive(),
+  options: GenerateCardsOptionsSchema.optional(),
 });
 
 type GenerateCardsInput = z.infer<typeof GenerateCardsSchema>;
@@ -37,9 +42,21 @@ export async function generateCardsWithAI(input: GenerateCardsInput) {
     );
   }
 
-  const topic = `${deck.name}: ${deck.description}`;
+  if (
+    parsed.data.options?.language === "other" &&
+    !parsed.data.options.customLanguage?.trim()
+  ) {
+    throw new Error("Please specify a language for your flashcards.");
+  }
 
-  const generated = await generateFlashcards(topic, CARD_COUNT);
+  const context = buildGenerationContext({
+    deckName: deck.name,
+    deckDescription: deck.description,
+    count: CARD_COUNT,
+    options: parsed.data.options,
+  });
+
+  const generated = await generateFlashcards(context);
 
   for (const card of generated) {
     await createCardRecord(parsed.data.deckId, userId, card);

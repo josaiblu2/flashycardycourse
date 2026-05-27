@@ -6,12 +6,12 @@ import { Button } from "@/components/ui/button";
 export function AuthButtons() {
   return (
     <>
-      <SignInButton mode="modal" forceRedirectUrl="/dashboard">
+      <SignInButton mode="modal">
         <Button size="lg" variant="outline">
           Sign In
         </Button>
       </SignInButton>
-      <SignUpButton mode="modal" forceRedirectUrl="/dashboard">
+      <SignUpButton mode="modal">
         <Button size="lg">
           Sign Up
         </Button>
