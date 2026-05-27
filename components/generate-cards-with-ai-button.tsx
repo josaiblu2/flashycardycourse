@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/tooltip";
 import { updateDeck } from "@/app/actions/decks";
 import { generateCardsWithAI } from "@/app/actions/generate-cards";
+import { getGenerateCardsWithAIDisabledState } from "@/lib/ai/generate-cards-button-state";
 
 interface GenerateCardsWithAIButtonProps {
   deckId: number;
@@ -30,8 +31,36 @@ interface GenerateCardsWithAIButtonProps {
   deckDescription?: string | null;
 }
 
-function isDeckReadyForAI(name: string, description?: string | null) {
-  return name.trim().length > 0 && (description?.trim().length ?? 0) > 0;
+interface DisabledButtonTooltipProps {
+  tooltipMessage: string;
+  onWrapperClick?: () => void;
+  children: React.ReactNode;
+}
+
+function DisabledButtonTooltip({
+  tooltipMessage,
+  onWrapperClick,
+  children,
+}: DisabledButtonTooltipProps) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <span
+            className={
+              onWrapperClick
+                ? "inline-flex cursor-pointer"
+                : "inline-flex cursor-not-allowed"
+            }
+            onClick={onWrapperClick}
+          />
+        }
+      >
+        {children}
+      </TooltipTrigger>
+      <TooltipContent>{tooltipMessage}</TooltipContent>
+    </Tooltip>
+  );
 }
 
 function GenerateCardsWithAIProButton({
@@ -45,6 +74,12 @@ function GenerateCardsWithAIProButton({
   const [name, setName] = useState(deckName);
   const [description, setDescription] = useState(deckDescription ?? "");
   const [isPending, startTransition] = useTransition();
+
+  const { disabled, reason, tooltipMessage } = getGenerateCardsWithAIDisabledState({
+    isPending,
+    deckName,
+    deckDescription,
+  });
 
   function runGeneration() {
     setError(null);
@@ -64,16 +99,16 @@ function GenerateCardsWithAIProButton({
   }
 
   function handleGenerateClick() {
+    if (disabled) return;
     setError(null);
-
-    if (!isDeckReadyForAI(deckName, deckDescription)) {
-      setName(deckName);
-      setDescription(deckDescription ?? "");
-      setDetailsOpen(true);
-      return;
-    }
-
     runGeneration();
+  }
+
+  function openDetailsDialog() {
+    setName(deckName);
+    setDescription(deckDescription ?? "");
+    setError(null);
+    setDetailsOpen(true);
   }
 
   function handleDetailsOpenChange(next: boolean) {
@@ -118,18 +153,40 @@ function GenerateCardsWithAIProButton({
     });
   }
 
+  const generateButton = (
+    <Button
+      variant="outline"
+      onClick={handleGenerateClick}
+      disabled={disabled}
+      data-icon="inline-start"
+    >
+      <Sparkles />
+      {isPending ? "Generating…" : "Generate cards with AI"}
+    </Button>
+  );
+
+  const wrappedGenerateButton =
+    disabled && tooltipMessage ? (
+      <DisabledButtonTooltip
+        tooltipMessage={tooltipMessage}
+        onWrapperClick={
+          reason === "missing-both" ||
+          reason === "missing-title" ||
+          reason === "missing-description"
+            ? openDetailsDialog
+            : undefined
+        }
+      >
+        {generateButton}
+      </DisabledButtonTooltip>
+    ) : (
+      generateButton
+    );
+
   return (
     <>
       <div className="flex flex-col items-end gap-1">
-        <Button
-          variant="outline"
-          onClick={handleGenerateClick}
-          disabled={isPending}
-          data-icon="inline-start"
-        >
-          <Sparkles />
-          {isPending ? "Generating…" : "Generate cards with AI"}
-        </Button>
+        {wrappedGenerateButton}
         {error && !detailsOpen && (
           <p className="text-sm text-destructive text-right max-w-xs">{error}</p>
         )}
@@ -179,10 +236,19 @@ function GenerateCardsWithAIProButton({
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isPending} data-icon="inline-start">
-                <Sparkles />
-                {isPending ? "Saving & generating…" : "Save & generate cards"}
-              </Button>
+              {isPending ? (
+                <DisabledButtonTooltip tooltipMessage="Generating flashcards. Please wait…">
+                  <Button type="submit" disabled data-icon="inline-start">
+                    <Sparkles />
+                    Saving & generating…
+                  </Button>
+                </DisabledButtonTooltip>
+              ) : (
+                <Button type="submit" data-icon="inline-start">
+                  <Sparkles />
+                  Save & generate cards
+                </Button>
+              )}
             </DialogFooter>
           </form>
         </DialogContent>
