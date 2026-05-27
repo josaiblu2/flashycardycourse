@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { EditDeckDialog } from "@/components/edit-deck-dialog";
+import { GenerateCardsWithAIButton } from "@/components/generate-cards-with-ai-button";
 import { AddCardDialog } from "@/components/add-card-dialog";
 import { EditCardDialog } from "@/components/edit-card-dialog";
 import { DeleteCardDialog } from "@/components/delete-card-dialog";
@@ -56,7 +57,7 @@ export default async function DeckPage({
               {cardRows.length} {cardRows.length === 1 ? "card" : "cards"}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             {cardRows.length > 0 && (
               <Link
                 href={`/deck/${id}/study`}
@@ -65,6 +66,11 @@ export default async function DeckPage({
                 Study
               </Link>
             )}
+            <GenerateCardsWithAIButton
+              deckId={id}
+              deckName={deck.name}
+              deckDescription={deck.description}
+            />
             <EditDeckDialog
               deckId={deck.id}
               initialName={deck.name}
