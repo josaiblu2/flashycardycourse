@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Poppins } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { dark } from "@clerk/ui/themes";
@@ -38,9 +39,12 @@ export default function RootLayout({
         >
           <TooltipProvider>
             <header className="flex items-center justify-between gap-4 bg-card border-b border-border px-6 py-4">
-              <span className="text-lg font-bold text-card-foreground">
+              <Link
+                href="/"
+                className="text-lg font-bold text-card-foreground hover:text-foreground transition-colors"
+              >
                 Flashy Cardy Course
-              </span>
+              </Link>
               <div className="flex items-center gap-3">
                 <HeaderAuth />
               </div>

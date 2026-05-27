@@ -9,6 +9,7 @@ import {
   isAtDeckLimit,
 } from "@/lib/billing/entitlements";
 import { CreateDeckAction } from "@/components/create-deck-action";
+import { UpgradeToProButton } from "@/components/upgrade-to-pro-button";
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -56,13 +57,7 @@ export default async function DashboardPage() {
             create unlimited decks and generate flashcards with AI.
           </AlertDescription>
           <AlertAction>
-            <Button
-              size="sm"
-              nativeButton={false}
-              render={<Link href="/pricing" />}
-            >
-              Upgrade to Pro
-            </Button>
+            <UpgradeToProButton size="sm" />
           </AlertAction>
         </Alert>
       )}

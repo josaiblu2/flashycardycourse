@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/tooltip";
 import { updateDeck } from "@/app/actions/decks";
 import { generateCardsWithAI } from "@/app/actions/generate-cards";
+import { UpgradeToProButton } from "@/components/upgrade-to-pro-button";
 import {
   CARD_LANGUAGE_OPTIONS,
   DEFAULT_GENERATION_OPTIONS,
@@ -399,15 +400,7 @@ function GenerateCardsWithAIProButton({
 }
 
 function GenerateCardsWithAIFreeButton() {
-  return (
-    <Button
-      variant="outline"
-      nativeButton={false}
-      render={<Link href="/pricing" />}
-    >
-      Upgrade to Pro
-    </Button>
-  );
+  return <UpgradeToProButton />;
 }
 
 export function GenerateCardsWithAIButton({

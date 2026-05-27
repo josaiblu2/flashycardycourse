@@ -9,11 +9,11 @@ type Deck = typeof decks.$inferSelect;
 function mapDeckRow(row: Record<string, unknown>): Deck {
   return {
     id: row.id as number,
-    clerkUserId: row.clerk_user_id as string,
+    clerkUserId: row.clerkUserId as string,
     name: row.name as string,
     description: (row.description as string | null) ?? null,
-    createdAt: new Date(row.created_at as string | Date),
-    updatedAt: new Date(row.updated_at as string | Date),
+    createdAt: new Date(row.createdAt as string | Date),
+    updatedAt: new Date(row.updatedAt as string | Date),
   };
 }
 
@@ -62,9 +62,9 @@ export async function createDeckRecordWithDeckLimit(
   const results = await sql.transaction((txn) => [
     txn`SELECT pg_advisory_xact_lock(hashtext(${userId}))`,
     txn`
-      INSERT INTO decks (clerk_user_id, name, description)
+      INSERT INTO decks ("clerkUserId", name, description)
       SELECT ${userId}, ${name}, ${description ?? null}
-      WHERE (SELECT COUNT(*)::int FROM decks WHERE clerk_user_id = ${userId}) < ${deckLimit}
+      WHERE (SELECT COUNT(*)::int FROM decks WHERE "clerkUserId" = ${userId}) < ${deckLimit}
       RETURNING *
     `,
   ]);

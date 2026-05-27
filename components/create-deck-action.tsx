@@ -1,26 +1,14 @@
 "use client";
 
-import Link from "next/link";
 import { Show } from "@clerk/nextjs";
-import { Button } from "@/components/ui/button";
 import { CreateDeckDialog } from "@/components/create-deck-dialog";
+import { UpgradeToProButton } from "@/components/upgrade-to-pro-button";
+import { Button } from "@/components/ui/button";
 
 interface CreateDeckActionProps {
   atDeckLimit: boolean;
   triggerLabel?: string;
   triggerVariant?: React.ComponentProps<typeof Button>["variant"];
-}
-
-function UpgradeToProButton() {
-  return (
-    <Button
-      variant="outline"
-      nativeButton={false}
-      render={<Link href="/pricing" />}
-    >
-      Upgrade to Pro
-    </Button>
-  );
 }
 
 export function CreateDeckAction({
