@@ -1,37 +1,47 @@
 import { config } from "dotenv";
-import { eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/neon-http";
-
-import { usersTable } from "../db/schema";
 
 config({ path: ".env.local" });
 config();
 
-const db = drizzle(process.env.DATABASE_URL!);
+const DEMO_USER_ID = "db-demo-user";
 
 async function main() {
-  const user: typeof usersTable.$inferInsert = {
-    name: "John",
-    age: 30,
-    email: "john@example.com",
-  };
+  const { eq } = await import("drizzle-orm");
+  const { db } = await import("@/db");
+  const { cards, decks } = await import("@/db/schema");
 
-  await db.insert(usersTable).values(user);
-  console.log("New user created!");
-
-  const users = await db.select().from(usersTable);
-  console.log("Getting all users from the database: ", users);
-
-  await db
-    .update(usersTable)
-    .set({
-      age: 31,
+  const [deck] = await db
+    .insert(decks)
+    .values({
+      clerkUserId: DEMO_USER_ID,
+      name: "Demo Deck",
+      description: "Created by the db:demo script",
     })
-    .where(eq(usersTable.email, user.email));
-  console.log("User info updated!");
+    .returning();
+  console.log("Created deck:", deck);
 
-  await db.delete(usersTable).where(eq(usersTable.email, user.email));
-  console.log("User deleted!");
+  const [card] = await db
+    .insert(cards)
+    .values({
+      deckId: deck.id,
+      front: "What is Drizzle?",
+      back: "A TypeScript ORM for SQL databases",
+    })
+    .returning();
+  console.log("Created card:", card);
+
+  const userDecks = await db
+    .select()
+    .from(decks)
+    .where(eq(decks.clerkUserId, DEMO_USER_ID));
+  console.log("Decks for demo user:", userDecks);
+
+  await db.delete(cards).where(eq(cards.deckId, deck.id));
+  await db.delete(decks).where(eq(decks.id, deck.id));
+  console.log("Cleanup complete");
 }
 
-main();
+main().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

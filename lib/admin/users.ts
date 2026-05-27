@@ -1,7 +1,8 @@
 import "server-only";
 
 import { clerkClient } from "@clerk/nextjs/server";
-import { getDeckCountsByUserIds } from "@/db/queries/decks";
+import { getDeckCountsByUserIds } from "@/db/queries/admin-decks";
+import { requireAdminSession } from "@/lib/admin/session";
 
 export type AdminUserSummary = {
   id: string;
@@ -13,6 +14,8 @@ export type AdminUserSummary = {
 };
 
 export async function getAdminUserSummaries(): Promise<AdminUserSummary[]> {
+  await requireAdminSession();
+
   const client = await clerkClient();
   const { data: users } = await client.users.getUserList({
     limit: 100,

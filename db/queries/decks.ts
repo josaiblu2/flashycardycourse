@@ -1,8 +1,21 @@
-import { db } from "@/db";
-import { decks } from "@/db/schema";
-import { and, count, eq, inArray } from "drizzle-orm";
+import "server-only";
 
-export const FREE_DECK_LIMIT = 3;
+import { db, sql } from "@/db";
+import { decks } from "@/db/schema";
+import { and, count, eq } from "drizzle-orm";
+
+type Deck = typeof decks.$inferSelect;
+
+function mapDeckRow(row: Record<string, unknown>): Deck {
+  return {
+    id: row.id as number,
+    clerkUserId: row.clerk_user_id as string,
+    name: row.name as string,
+    description: (row.description as string | null) ?? null,
+    createdAt: new Date(row.created_at as string | Date),
+    updatedAt: new Date(row.updated_at as string | Date),
+  };
+}
 
 export async function getDecksByUser(userId: string) {
   return db.select().from(decks).where(eq(decks.clerkUserId, userId));
@@ -36,6 +49,34 @@ export async function createDeckRecord(
   return deck;
 }
 
+export async function createDeckRecordWithDeckLimit(
+  userId: string,
+  name: string,
+  description: string | undefined,
+  deckLimit: number | null
+) {
+  if (deckLimit === null) {
+    return createDeckRecord(userId, name, description);
+  }
+
+  const results = await sql.transaction((txn) => [
+    txn`SELECT pg_advisory_xact_lock(hashtext(${userId}))`,
+    txn`
+      INSERT INTO decks (clerk_user_id, name, description)
+      SELECT ${userId}, ${name}, ${description ?? null}
+      WHERE (SELECT COUNT(*)::int FROM decks WHERE clerk_user_id = ${userId}) < ${deckLimit}
+      RETURNING *
+    `,
+  ]);
+
+  const inserted = results[1];
+  if (!Array.isArray(inserted) || inserted.length === 0) {
+    throw new Error("Deck limit reached. Upgrade to Pro.");
+  }
+
+  return mapDeckRow(inserted[0] as Record<string, unknown>);
+}
+
 export async function updateDeckRecord(
   deckId: number,
   userId: string,
@@ -63,18 +104,3 @@ export async function deleteDeckRecord(deckId: number, userId: string) {
   return deleted ?? null;
 }
 
-export async function deleteDecksByUserId(userId: string) {
-  return db.delete(decks).where(eq(decks.clerkUserId, userId)).returning();
-}
-
-export async function getDeckCountsByUserIds(userIds: string[]) {
-  if (userIds.length === 0) return new Map<string, number>();
-
-  const rows = await db
-    .select({ clerkUserId: decks.clerkUserId, deckCount: count() })
-    .from(decks)
-    .where(inArray(decks.clerkUserId, userIds))
-    .groupBy(decks.clerkUserId);
-
-  return new Map(rows.map((row) => [row.clerkUserId, row.deckCount]));
-}

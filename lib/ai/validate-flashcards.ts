@@ -1,4 +1,8 @@
 import type { Flashcard } from "./generation-context";
+import {
+  CARD_BACK_MAX_LENGTH,
+  CARD_FRONT_MAX_LENGTH,
+} from "@/lib/cards/limits";
 
 const META_PATTERNS = [
   /incorrect(?:o|a)?\s+(?:term|t[eé]rmino)/i,
@@ -19,8 +23,8 @@ const META_PATTERNS = [
 
 const MIN_FRONT_LENGTH = 2;
 const MIN_BACK_LENGTH = 4;
-const MAX_FRONT_LENGTH = 300;
-const MAX_BACK_LENGTH = 600;
+const MAX_FRONT_LENGTH = CARD_FRONT_MAX_LENGTH;
+const MAX_BACK_LENGTH = CARD_BACK_MAX_LENGTH;
 
 function normalizeForComparison(text: string): string {
   return text

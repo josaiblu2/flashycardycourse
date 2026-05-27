@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Show } from "@clerk/nextjs";
 import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -40,7 +41,7 @@ import {
   type FlashcardLevel,
   type GenerateCardsOptions,
 } from "@/lib/ai/generation-context";
-import { getGenerateCardsWithAIDisabledState } from "@/lib/ai/generate-cards-button-state";
+import { getGenerateCardsWithAIDisabledState } from "@/lib/generate-cards-button-state";
 
 interface GenerateCardsWithAIButtonProps {
   deckId: number;
@@ -398,26 +399,14 @@ function GenerateCardsWithAIProButton({
 }
 
 function GenerateCardsWithAIFreeButton() {
-  const router = useRouter();
-
   return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <Button
-            variant="outline"
-            data-icon="inline-start"
-            onClick={() => router.push("/pricing")}
-          />
-        }
-      >
-        <Sparkles />
-        Generate cards with AI
-      </TooltipTrigger>
-      <TooltipContent>
-        AI flashcard generation is a Pro feature. Click to view pricing plans.
-      </TooltipContent>
-    </Tooltip>
+    <Button
+      variant="outline"
+      nativeButton={false}
+      render={<Link href="/pricing" />}
+    >
+      Upgrade to Pro
+    </Button>
   );
 }
 

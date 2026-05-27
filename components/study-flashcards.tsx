@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 
 export type StudyCard = {
@@ -152,12 +153,10 @@ export function StudyFlashcards({
         <p className="text-sm font-medium text-muted-foreground">
           Card {progressLabel}
         </p>
-        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
-          <div
-            className="h-full rounded-full bg-primary transition-all duration-300"
-            style={{ width: `${((currentIndex + 1) / total) * 100}%` }}
-          />
-        </div>
+        <Progress
+          className="flex-1 gap-0"
+          value={Math.round(((currentIndex + 1) / total) * 100)}
+        />
         <Button variant="outline" size="sm" onClick={handleShuffle}>
           <Shuffle data-icon="inline-start" />
           Shuffle

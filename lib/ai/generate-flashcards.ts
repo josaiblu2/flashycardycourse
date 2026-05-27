@@ -13,22 +13,24 @@ import {
 } from "./generation-context";
 import { sanitizeFlashcards } from "./validate-flashcards";
 
-const GENERATION_MODEL = openai("gpt-4o-mini");
-const REVIEW_MODEL = openai("gpt-4o-mini");
-const GENERATION_TEMPERATURE = 0.4;
+// Use the OpenAI provider so OPENAI_API_KEY is honored. The gateway string
+// "openai/gpt-5.3-chat" requires AI_GATEWAY_API_KEY instead.
+const FLASHCARD_MODEL = openai("gpt-5-mini");
 const MAX_BATCH_ATTEMPTS = 3;
 const MAX_REVIEW_ATTEMPTS = 2;
 
+export const GeneratedFlashcardsSchema = z.object({
+  cards: z.array(
+    z.object({
+      front: z.string().min(1),
+      back: z.string().min(1),
+    })
+  ),
+});
+
 function buildFlashcardsSchema(count: number) {
-  return z.object({
-    cards: z
-      .array(
-        z.object({
-          front: z.string().min(1),
-          back: z.string().min(1),
-        })
-      )
-      .length(count),
+  return GeneratedFlashcardsSchema.extend({
+    cards: GeneratedFlashcardsSchema.shape.cards.length(count),
   });
 }
 
@@ -46,14 +48,17 @@ async function generateBatch(
   existingCards: Flashcard[]
 ): Promise<Flashcard[]> {
   const { output } = await generateText({
-    model: GENERATION_MODEL,
+    model: FLASHCARD_MODEL,
     system: getFlashcardSystemPrompt(),
-    temperature: GENERATION_TEMPERATURE,
     output: Output.object({
       schema: buildFlashcardsSchema(count),
     }),
     prompt: buildGenerationPrompt(context, count, existingCards),
   });
+
+  if (output.cards.length !== count) {
+    throw new Error("AI returned an unexpected number of cards");
+  }
 
   return output.cards;
 }
@@ -67,14 +72,17 @@ async function reviewFlashcards(
   }
 
   const { output } = await generateText({
-    model: REVIEW_MODEL,
+    model: FLASHCARD_MODEL,
     system: getFlashcardSystemPrompt(),
-    temperature: 0.2,
     output: Output.object({
       schema: buildFlashcardsSchema(cards.length),
     }),
     prompt: buildReviewPrompt(context, cards),
   });
+
+  if (output.cards.length !== cards.length) {
+    throw new Error("AI returned an unexpected number of cards");
+  }
 
   return output.cards;
 }

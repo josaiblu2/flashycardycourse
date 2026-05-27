@@ -24,17 +24,16 @@ export const CardLanguageSchema = z.enum([
   "other",
 ]);
 
-export const GenerateCardsOptionsSchema = z.object({
-  language: CardLanguageSchema.default("auto"),
-  customLanguage: z.string().trim().max(50).optional(),
-  level: FlashcardLevelSchema.default("intermediate"),
-  format: FlashcardFormatSchema.default("qa"),
-});
-
 export type FlashcardLevel = z.infer<typeof FlashcardLevelSchema>;
 export type FlashcardFormat = z.infer<typeof FlashcardFormatSchema>;
 export type CardLanguage = z.infer<typeof CardLanguageSchema>;
-export type GenerateCardsOptions = z.infer<typeof GenerateCardsOptionsSchema>;
+
+export type GenerateCardsOptions = {
+  language: CardLanguage;
+  customLanguage?: string;
+  level: FlashcardLevel;
+  format: FlashcardFormat;
+};
 
 export type Flashcard = {
   front: string;
@@ -132,26 +131,4 @@ export function resolveCardLanguage(context: GenerationContext): string {
   }
 
   return LANGUAGE_LABELS[context.language];
-}
-
-export function buildGenerationContext(input: {
-  deckName: string;
-  deckDescription: string;
-  count: number;
-  options?: Partial<GenerateCardsOptions>;
-}): GenerationContext {
-  const parsedOptions = GenerateCardsOptionsSchema.parse({
-    ...DEFAULT_GENERATION_OPTIONS,
-    ...input.options,
-  });
-
-  return {
-    topic: input.deckName.trim(),
-    scope: input.deckDescription.trim(),
-    language: parsedOptions.language,
-    customLanguage: parsedOptions.customLanguage,
-    level: parsedOptions.level,
-    format: parsedOptions.format,
-    count: input.count,
-  };
 }

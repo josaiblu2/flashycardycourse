@@ -1,3 +1,5 @@
+import "server-only";
+
 import { db } from "@/db";
 import { cards, decks } from "@/db/schema";
 import { and, desc, eq } from "drizzle-orm";

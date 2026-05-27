@@ -4,11 +4,21 @@ import { z } from "zod";
 import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 import { createCardRecord, updateCardRecord, deleteCardRecord } from "@/db/queries/cards";
+import {
+  CARD_BACK_MAX_LENGTH,
+  CARD_FRONT_MAX_LENGTH,
+} from "@/lib/cards/limits";
 
 const CreateCardSchema = z.object({
   deckId: z.number().int().positive(),
-  front: z.string().min(1, "Front is required"),
-  back: z.string().min(1, "Back is required"),
+  front: z
+    .string()
+    .min(1, "Front is required")
+    .max(CARD_FRONT_MAX_LENGTH, `Front must be at most ${CARD_FRONT_MAX_LENGTH} characters`),
+  back: z
+    .string()
+    .min(1, "Back is required")
+    .max(CARD_BACK_MAX_LENGTH, `Back must be at most ${CARD_BACK_MAX_LENGTH} characters`),
 });
 
 type CreateCardInput = z.infer<typeof CreateCardSchema>;
@@ -35,8 +45,14 @@ export async function createCard(input: CreateCardInput) {
 const UpdateCardSchema = z.object({
   cardId: z.number().int().positive(),
   deckId: z.number().int().positive(),
-  front: z.string().min(1, "Front is required"),
-  back: z.string().min(1, "Back is required"),
+  front: z
+    .string()
+    .min(1, "Front is required")
+    .max(CARD_FRONT_MAX_LENGTH, `Front must be at most ${CARD_FRONT_MAX_LENGTH} characters`),
+  back: z
+    .string()
+    .min(1, "Back is required")
+    .max(CARD_BACK_MAX_LENGTH, `Back must be at most ${CARD_BACK_MAX_LENGTH} characters`),
 });
 
 type UpdateCardInput = z.infer<typeof UpdateCardSchema>;

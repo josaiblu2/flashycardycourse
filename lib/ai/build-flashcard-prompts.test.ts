@@ -1,18 +1,30 @@
 import { describe, expect, it } from "vitest";
 import { buildGenerationPrompt, buildReviewPrompt } from "./build-flashcard-prompts";
-import { buildGenerationContext } from "./generation-context";
+import type { GenerationContext } from "./generation-context";
+
+function createContext(
+  overrides: Partial<GenerationContext> = {}
+): GenerationContext {
+  return {
+    topic: "Topic",
+    scope: "Scope",
+    language: "auto",
+    level: "intermediate",
+    format: "qa",
+    count: 20,
+    ...overrides,
+  };
+}
 
 describe("buildGenerationPrompt", () => {
   it("includes topic, language, level, and format instructions", () => {
-    const context = buildGenerationContext({
-      deckName: "Dental terms",
-      deckDescription: "Basic odontological vocabulary for first-year students",
+    const context = createContext({
+      topic: "Dental terms",
+      scope: "Basic odontological vocabulary for first-year students",
       count: 5,
-      options: {
-        language: "spanish",
-        level: "beginner",
-        format: "qa",
-      },
+      language: "spanish",
+      level: "beginner",
+      format: "qa",
     });
 
     const prompt = buildGenerationPrompt(context, 5, []);
@@ -25,9 +37,9 @@ describe("buildGenerationPrompt", () => {
   });
 
   it("lists existing cards to avoid duplicates", () => {
-    const context = buildGenerationContext({
-      deckName: "History",
-      deckDescription: "Roman empire",
+    const context = createContext({
+      topic: "History",
+      scope: "Roman empire",
       count: 2,
     });
 
@@ -42,11 +54,12 @@ describe("buildGenerationPrompt", () => {
 
 describe("buildReviewPrompt", () => {
   it("asks to review and replace low-quality cards", () => {
-    const context = buildGenerationContext({
-      deckName: "Nursing",
-      deckDescription: "Core terminology",
+    const context = createContext({
+      topic: "Nursing",
+      scope: "Core terminology",
       count: 2,
-      options: { language: "english", format: "term-definition" },
+      language: "english",
+      format: "term-definition",
     });
 
     const prompt = buildReviewPrompt(context, [
@@ -57,19 +70,5 @@ describe("buildReviewPrompt", () => {
     expect(prompt).toContain("Review and improve");
     expect(prompt).toContain("meta-commentary");
     expect(prompt).toContain('"cards" array must contain exactly 2 items');
-  });
-});
-
-describe("buildGenerationContext", () => {
-  it("applies defaults when options are omitted", () => {
-    const context = buildGenerationContext({
-      deckName: "Spanish verbs",
-      deckDescription: "Present tense",
-      count: 20,
-    });
-
-    expect(context.language).toBe("auto");
-    expect(context.level).toBe("intermediate");
-    expect(context.format).toBe("qa");
   });
 });

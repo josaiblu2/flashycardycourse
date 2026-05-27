@@ -11,6 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { EditDeckDialog } from "@/components/edit-deck-dialog";
 import { GenerateCardsWithAIButton } from "@/components/generate-cards-with-ai-button";
 import { AddCardDialog } from "@/components/add-card-dialog";
@@ -106,7 +107,7 @@ export default async function DeckPage({
               <CardContent className="flex-1 pb-2">
                 <p className="text-foreground">{card.front}</p>
               </CardContent>
-              <div className="mx-6 border-t border-border" />
+              <Separator className="mx-6" />
               <CardHeader className="pb-2 pt-4">
                 <CardTitle className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
                   Back

@@ -14,6 +14,10 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { updateCard } from "@/app/actions/cards";
+import {
+  CARD_BACK_MAX_LENGTH,
+  CARD_FRONT_MAX_LENGTH,
+} from "@/lib/cards/limits";
 
 interface EditCardDialogProps {
   cardId: number;
@@ -55,6 +59,14 @@ export function EditCardDialog({
       setError("Back side is required.");
       return;
     }
+    if (front.length > CARD_FRONT_MAX_LENGTH) {
+      setError(`Front must be at most ${CARD_FRONT_MAX_LENGTH} characters.`);
+      return;
+    }
+    if (back.length > CARD_BACK_MAX_LENGTH) {
+      setError(`Back must be at most ${CARD_BACK_MAX_LENGTH} characters.`);
+      return;
+    }
 
     startTransition(async () => {
       try {
@@ -93,6 +105,7 @@ export function EditCardDialog({
               placeholder="Front side of the card"
               disabled={isPending}
               rows={3}
+              maxLength={CARD_FRONT_MAX_LENGTH}
             />
           </div>
           <div className="space-y-1.5">
@@ -104,6 +117,7 @@ export function EditCardDialog({
               placeholder="Back side of the card"
               disabled={isPending}
               rows={3}
+              maxLength={CARD_BACK_MAX_LENGTH}
             />
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}

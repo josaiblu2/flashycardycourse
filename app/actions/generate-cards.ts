@@ -6,12 +6,23 @@ import { revalidatePath } from "next/cache";
 import { getDeckByIdAndUser } from "@/db/queries/decks";
 import { createCardRecord } from "@/db/queries/cards";
 import {
-  buildGenerationContext,
-  GenerateCardsOptionsSchema,
+  CardLanguageSchema,
+  DEFAULT_GENERATION_OPTIONS,
+  FlashcardFormatSchema,
+  FlashcardLevelSchema,
+  type GenerationContext,
+  type GenerateCardsOptions,
 } from "@/lib/ai/generation-context";
 import { generateFlashcards } from "@/lib/ai/generate-flashcards";
 
 const CARD_COUNT = 20;
+
+const GenerateCardsOptionsSchema = z.object({
+  language: CardLanguageSchema.default("auto"),
+  customLanguage: z.string().trim().max(50).optional(),
+  level: FlashcardLevelSchema.default("intermediate"),
+  format: FlashcardFormatSchema.default("qa"),
+});
 
 const GenerateCardsSchema = z.object({
   deckId: z.number().int().positive(),
@@ -19,6 +30,28 @@ const GenerateCardsSchema = z.object({
 });
 
 type GenerateCardsInput = z.infer<typeof GenerateCardsSchema>;
+
+function buildGenerationContext(input: {
+  deckName: string;
+  deckDescription: string;
+  count: number;
+  options?: Partial<GenerateCardsOptions>;
+}): GenerationContext {
+  const parsedOptions = GenerateCardsOptionsSchema.parse({
+    ...DEFAULT_GENERATION_OPTIONS,
+    ...input.options,
+  });
+
+  return {
+    topic: input.deckName.trim(),
+    scope: input.deckDescription.trim(),
+    language: parsedOptions.language,
+    customLanguage: parsedOptions.customLanguage,
+    level: parsedOptions.level,
+    format: parsedOptions.format,
+    count: input.count,
+  };
+}
 
 export async function generateCardsWithAI(input: GenerateCardsInput) {
   const parsed = GenerateCardsSchema.safeParse(input);

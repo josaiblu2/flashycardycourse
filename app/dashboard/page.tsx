@@ -2,7 +2,12 @@ import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
-import { FREE_DECK_LIMIT, getDecksByUser } from "@/db/queries/decks";
+import { getDecksByUser } from "@/db/queries/decks";
+import {
+  FREE_DECK_LIMIT,
+  hasUnlimitedDecks,
+  isAtDeckLimit,
+} from "@/lib/billing/entitlements";
 import { CreateDeckAction } from "@/components/create-deck-action";
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -19,9 +24,8 @@ export default async function DashboardPage() {
   if (!userId) redirect("/");
 
   const userDecks = await getDecksByUser(userId);
-  const canCreateUnlimited = has({ feature: "unlimited_decks" });
-  const atDeckLimit =
-    !canCreateUnlimited && userDecks.length >= FREE_DECK_LIMIT;
+  const canCreateUnlimited = hasUnlimitedDecks(has);
+  const atDeckLimit = isAtDeckLimit(has, userDecks.length);
 
   return (
     <main className="flex flex-1 flex-col px-6 py-10 max-w-5xl mx-auto w-full">
