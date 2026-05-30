@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Show } from "@clerk/nextjs";
-import { Sparkles } from "lucide-react";
+import { Info, Sparkles } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -31,7 +31,11 @@ import {
 } from "@/components/ui/tooltip";
 import { updateDeck } from "@/app/actions/decks";
 import { generateCardsWithAI } from "@/app/actions/generate-cards";
+import type { AiGenerationErrorCode } from "@/lib/ai/generation-errors";
+import { ProWaitlistForm } from "@/components/pro-waitlist-form";
+import { WaitlistJoinedMessage } from "@/components/waitlist-joined-message";
 import { UpgradeToProButton } from "@/components/upgrade-to-pro-button";
+import type { WaitlistLimitType } from "@/lib/waitlist/schemas";
 import {
   CARD_LANGUAGE_OPTIONS,
   DEFAULT_GENERATION_OPTIONS,
@@ -41,13 +45,73 @@ import {
   type FlashcardFormat,
   type FlashcardLevel,
   type GenerateCardsOptions,
+  getExistingCardsGenerationNotice,
 } from "@/lib/ai/generation-context";
 import { getGenerateCardsWithAIDisabledState } from "@/lib/generate-cards-button-state";
+
+const WAITLIST_JOINED_STORAGE_KEY = "flashycardy_waitlist_joined";
 
 interface GenerateCardsWithAIButtonProps {
   deckId: number;
   deckName: string;
   deckDescription?: string | null;
+  existingCardCount: number;
+  canUseAI: boolean;
+  isOnWaitlist?: boolean;
+}
+
+const LIMIT_ERROR_CODES = new Set<AiGenerationErrorCode>([
+  "USER_DAILY_LIMIT_REACHED",
+  "USER_MONTHLY_LIMIT_REACHED",
+  "GLOBAL_MONTHLY_LIMIT_REACHED",
+]);
+
+function getWaitlistLimitType(
+  errorCode: AiGenerationErrorCode
+): WaitlistLimitType | null {
+  switch (errorCode) {
+    case "USER_DAILY_LIMIT_REACHED":
+      return "user_daily";
+    case "USER_MONTHLY_LIMIT_REACHED":
+      return "user_monthly";
+    case "GLOBAL_MONTHLY_LIMIT_REACHED":
+      return "global_monthly";
+    default:
+      return null;
+  }
+}
+
+function isLimitErrorCode(
+  errorCode: AiGenerationErrorCode | null
+): errorCode is AiGenerationErrorCode {
+  return errorCode !== null && LIMIT_ERROR_CODES.has(errorCode);
+}
+
+function getAiGenerationErrorClassName(
+  message: string,
+  code?: AiGenerationErrorCode | null
+) {
+  if (code === "GLOBAL_MONTHLY_LIMIT_REACHED" || message.includes("\n")) {
+    return "whitespace-pre-line";
+  }
+  return "";
+}
+
+function handleGenerateResult(
+  result: Awaited<ReturnType<typeof generateCardsWithAI>>,
+  onSuccess: () => void,
+  setError: (message: string | null) => void,
+  setErrorCode: (code: AiGenerationErrorCode | null) => void
+) {
+  if (result.success) {
+    setError(null);
+    setErrorCode(null);
+    onSuccess();
+    return;
+  }
+
+  setErrorCode(result.code);
+  setError(result.message);
 }
 
 interface DisabledButtonTooltipProps {
@@ -86,9 +150,13 @@ function GenerateCardsWithAIProButton({
   deckId,
   deckName,
   deckDescription,
-}: GenerateCardsWithAIButtonProps) {
+  existingCardCount,
+  isOnWaitlist = false,
+}: Omit<GenerateCardsWithAIButtonProps, "canUseAI">) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<AiGenerationErrorCode | null>(null);
+  const [waitlistJoined, setWaitlistJoined] = useState(isOnWaitlist);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [name, setName] = useState(deckName);
   const [description, setDescription] = useState(deckDescription ?? "");
@@ -104,20 +172,44 @@ function GenerateCardsWithAIProButton({
   );
   const [isPending, startTransition] = useTransition();
 
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(WAITLIST_JOINED_STORAGE_KEY) === "1") {
+        setWaitlistJoined(true);
+      }
+    } catch {
+      // localStorage unavailable
+    }
+  }, []);
+
+  function handleWaitlistJoined() {
+    setWaitlistJoined(true);
+    try {
+      localStorage.setItem(WAITLIST_JOINED_STORAGE_KEY, "1");
+    } catch {
+      // localStorage unavailable
+    }
+  }
+
   const { disabled, reason, tooltipMessage } = getGenerateCardsWithAIDisabledState({
     isPending,
     deckName,
     deckDescription,
   });
 
-  function resetDialogFields() {
+  function resetFormFields() {
     setName(deckName);
     setDescription(deckDescription ?? "");
     setLanguage(DEFAULT_GENERATION_OPTIONS.language);
     setCustomLanguage("");
     setLevel(DEFAULT_GENERATION_OPTIONS.level);
     setFormat(DEFAULT_GENERATION_OPTIONS.format);
+  }
+
+  function resetDialogFields() {
+    resetFormFields();
     setError(null);
+    setErrorCode(null);
   }
 
   function openGenerateDialog() {
@@ -126,8 +218,10 @@ function GenerateCardsWithAIProButton({
   }
 
   function handleDialogOpenChange(next: boolean) {
-    if (!next) {
+    if (next) {
       resetDialogFields();
+    } else {
+      resetFormFields();
     }
     setDialogOpen(next);
   }
@@ -145,18 +239,18 @@ function GenerateCardsWithAIProButton({
 
   function runGeneration(options: GenerateCardsOptions) {
     setError(null);
+    setErrorCode(null);
 
     startTransition(async () => {
       try {
-        await generateCardsWithAI({ deckId, options });
-        setDialogOpen(false);
-        router.refresh();
-      } catch (err) {
-        const message =
-          err instanceof Error
-            ? err.message
-            : "Failed to generate cards. Please try again.";
-        setError(message);
+        const result = await generateCardsWithAI({ deckId, options });
+        handleGenerateResult(result, () => {
+          setDialogOpen(false);
+          router.refresh();
+        }, setError, setErrorCode);
+      } catch {
+        setErrorCode(null);
+        setError("Failed to generate cards. Please try again.");
       }
     });
   }
@@ -200,17 +294,38 @@ function GenerateCardsWithAIProButton({
           name: name.trim(),
           description: description.trim(),
         });
-        await generateCardsWithAI({ deckId, options });
-        setDialogOpen(false);
-        router.refresh();
-      } catch (err) {
-        const message =
-          err instanceof Error
-            ? err.message
-            : "Failed to save deck details or generate cards. Please try again.";
-        setError(message);
+        const result = await generateCardsWithAI({ deckId, options });
+        handleGenerateResult(result, () => {
+          setDialogOpen(false);
+          router.refresh();
+        }, setError, setErrorCode);
+      } catch {
+        setErrorCode(null);
+        setError(
+          "Failed to save deck details or generate cards. Please try again."
+        );
       }
     });
+  }
+
+  const errorClassName = getAiGenerationErrorClassName(error ?? "", errorCode);
+  const existingCardsNotice =
+    getExistingCardsGenerationNotice(existingCardCount);
+  const waitlistLimitType =
+    errorCode !== null ? getWaitlistLimitType(errorCode) : null;
+  const showWaitlist = isLimitErrorCode(errorCode) && waitlistLimitType !== null;
+
+  function renderWaitlistBlock() {
+    if (!showWaitlist || !waitlistLimitType) return null;
+    if (waitlistJoined) {
+      return <WaitlistJoinedMessage />;
+    }
+    return (
+      <ProWaitlistForm
+        limitType={waitlistLimitType}
+        onJoined={handleWaitlistJoined}
+      />
+    );
   }
 
   const generateButton = (
@@ -245,23 +360,71 @@ function GenerateCardsWithAIProButton({
 
   return (
     <>
-      <div className="flex flex-col items-end gap-1">
+      <div className="flex flex-col items-end gap-3 max-w-md">
         {wrappedGenerateButton}
         {error && !dialogOpen && (
-          <p className="text-sm text-destructive text-right max-w-xs">{error}</p>
+          <div className="w-full space-y-3 text-left">
+            <p
+              className={`text-sm text-destructive text-right ${errorClassName ?? ""}`}
+            >
+              {error}
+            </p>
+            {renderWaitlistBlock()}
+          </div>
         )}
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={handleDialogOpenChange}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg max-h-[min(90vh,720px)] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Generate flashcards with AI</DialogTitle>
-            <DialogDescription>
-              Set your topic, language, and card style. Better details produce
-              more accurate flashcards.
-            </DialogDescription>
+            {showWaitlist ? (
+              <>
+                <DialogTitle>Join the Pro waitlist</DialogTitle>
+                <DialogDescription>
+                  AI generation is unavailable right now. Share your interest
+                  and pricing expectations so we can prioritize expanded
+                  access.
+                </DialogDescription>
+              </>
+            ) : (
+              <>
+                <DialogTitle>Generate flashcards with AI</DialogTitle>
+                <DialogDescription>
+                  Set your topic, language, and card style. Better details produce
+                  more accurate flashcards.
+                </DialogDescription>
+              </>
+            )}
           </DialogHeader>
+          {showWaitlist && waitlistLimitType ? (
+            <div className="space-y-4 py-2">
+              {error && (
+                <p
+                  className={`text-sm text-destructive ${errorClassName ?? ""}`}
+                >
+                  {error}
+                </p>
+              )}
+              {renderWaitlistBlock()}
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => handleDialogOpenChange(false)}
+                >
+                  Close
+                </Button>
+              </DialogFooter>
+            </div>
+          ) : (
           <form onSubmit={handleSubmit} className="space-y-4 py-2">
+            {existingCardsNotice && (
+              <Alert>
+                <Info />
+                <AlertTitle>Existing cards will be considered</AlertTitle>
+                <AlertDescription>{existingCardsNotice}</AlertDescription>
+              </Alert>
+            )}
             <div className="space-y-1.5">
               <Label htmlFor="ai-deck-name">Title</Label>
               <Input
@@ -368,7 +531,13 @@ function GenerateCardsWithAIProButton({
               </p>
             </div>
 
-            {error && <p className="text-sm text-destructive">{error}</p>}
+            {error && (
+              <p
+                className={`text-sm text-destructive ${errorClassName ?? ""}`}
+              >
+                {error}
+              </p>
+            )}
             <DialogFooter>
               <Button
                 type="button"
@@ -378,21 +547,23 @@ function GenerateCardsWithAIProButton({
               >
                 Cancel
               </Button>
-              {isPending ? (
-                <DisabledButtonTooltip tooltipMessage="Generating flashcards. Please wait…">
-                  <Button type="submit" disabled data-icon="inline-start">
+              {!showWaitlist &&
+                (isPending ? (
+                  <DisabledButtonTooltip tooltipMessage="Generating flashcards. Please wait…">
+                    <Button type="submit" disabled data-icon="inline-start">
+                      <Sparkles />
+                      Generating…
+                    </Button>
+                  </DisabledButtonTooltip>
+                ) : (
+                  <Button type="submit" data-icon="inline-start">
                     <Sparkles />
-                    Generating…
+                    Generate cards
                   </Button>
-                </DisabledButtonTooltip>
-              ) : (
-                <Button type="submit" data-icon="inline-start">
-                  <Sparkles />
-                  Generate cards
-                </Button>
-              )}
+                ))}
             </DialogFooter>
           </form>
+          )}
         </DialogContent>
       </Dialog>
     </>
@@ -407,17 +578,21 @@ export function GenerateCardsWithAIButton({
   deckId,
   deckName,
   deckDescription,
+  existingCardCount,
+  canUseAI,
+  isOnWaitlist = false,
 }: GenerateCardsWithAIButtonProps) {
+  if (!canUseAI) {
+    return <GenerateCardsWithAIFreeButton />;
+  }
+
   return (
-    <Show
-      when={{ feature: "ai_flashcard_generation" }}
-      fallback={<GenerateCardsWithAIFreeButton />}
-    >
-      <GenerateCardsWithAIProButton
-        deckId={deckId}
-        deckName={deckName}
-        deckDescription={deckDescription}
-      />
-    </Show>
+    <GenerateCardsWithAIProButton
+      deckId={deckId}
+      deckName={deckName}
+      deckDescription={deckDescription}
+      existingCardCount={existingCardCount}
+      isOnWaitlist={isOnWaitlist}
+    />
   );
 }

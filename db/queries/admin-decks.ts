@@ -5,7 +5,7 @@ import { decks } from "@/db/schema";
 import { count, eq, inArray } from "drizzle-orm";
 
 /**
- * Admin-only deck helpers. Callers must invoke `requireAdminSession()` first.
+ * Admin-only deck helpers. Callers must invoke `requireAdmin()` first.
  * `userId` values are target Clerk user IDs from the admin panel, not the session.
  */
 

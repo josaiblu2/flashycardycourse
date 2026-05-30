@@ -54,7 +54,7 @@ export default async function DashboardPage() {
           <AlertTitle>Deck limit reached</AlertTitle>
           <AlertDescription>
             You&apos;ve used all {FREE_DECK_LIMIT} free decks. Upgrade to Pro to
-            create unlimited decks and generate flashcards with AI.
+            create unlimited decks, and generate flashcards with AI.
           </AlertDescription>
           <AlertAction>
             <UpgradeToProButton size="sm" />

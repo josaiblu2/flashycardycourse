@@ -1,336 +1,434 @@
-# Arquitectura — Flashy Cardy Course
+# Architecture — FlashyCardy
 
-Documentación viva del proyecto. Objetivo: que alguien ajeno al repositorio entienda **qué es la app**, **cómo está montada** y **cómo reproducir el entorno** sin depender del historial del chat.
-
-> **Última revisión:** 2026-05-19 · **Estado:** fundación (landing + autenticación). Capas de datos y mazos de flashcards aún no implementadas.
+Accurate snapshot of the application as implemented in the repository. Last reviewed: **2026-05-29**.
 
 ---
 
-## 1. Visión del producto
+## 1. Product overview
 
-**Flashy Cardy Course** es una aplicación web para aprender con **flashcards**: crear mazos, estudiar y seguir el progreso. Hoy el código cubre:
+**FlashyCardy** (package name: `flashycardycourse`) is a SaaS flashcard learning platform. Users create decks, add cards manually or with AI (Pro), and study with an interactive flip-card session. The app runs as a **public demo** with Clerk Billing for plan gating and configurable AI usage caps.
 
-| Capa | Estado |
-|------|--------|
-| Landing pública (`/`) | Implementada |
-| Autenticación (registro / inicio de sesión) | Implementada (Clerk) |
-| Mazos, tarjetas, estudio, progreso | **Pendiente** |
-
-La arquitectura actual prioriza una base sólida: **Next.js App Router**, **UI con shadcn**, **auth gestionada** y convenciones claras para crecer sin reescribir.
-
----
-
-## 2. Stack tecnológico
-
-| Tecnología | Versión (aprox.) | Rol |
-|------------|------------------|-----|
-| [Next.js](https://nextjs.org) | 16.x | Framework full-stack, App Router, SSR/RSC |
-| [React](https://react.dev) | 19.x | UI |
-| [TypeScript](https://www.typescriptlang.org) | 5.x | Tipado estático |
-| [Tailwind CSS](https://tailwindcss.com) | 4.x | Estilos utility-first (`@import "tailwindcss"`) |
-| [shadcn/ui](https://ui.shadcn.com) | 4.x (estilo **base-nova**) | Componentes accesibles sobre primitivos |
-| [@base-ui/react](https://base-ui.com) | 1.x | Primitivos headless (p. ej. `Button`) |
-| [Clerk](https://clerk.com) | 7.x | Autenticación y sesión de usuario |
-| [Lucide](https://lucide.dev) | — | Iconos (vía shadcn) |
-
-**Runtime de proxy (Next 16):** el archivo `proxy.ts` sustituye al antiguo `middleware.ts`. Ejecuta en **Node.js**, no en Edge. Ver [guía Next.js 16 — middleware → proxy](https://nextjs.org/docs/app/building-your-application/routing/middleware#proxy).
-
-**Nota para agentes y contribuidores:** este proyecto usa APIs de Next.js 16 que pueden diferir de versiones anteriores. Consultar `node_modules/next/dist/docs/` antes de asumir patrones de Next 14/15.
+| Layer | Status |
+|-------|--------|
+| Landing page (`/`) | Implemented |
+| Authentication (Clerk modals) | Implemented |
+| Dashboard & deck CRUD | Implemented |
+| Card CRUD | Implemented |
+| Study mode | Implemented (client-side session, no persistence) |
+| Clerk Billing / pricing | Implemented (`/pricing`) |
+| AI flashcard generation | Implemented (Pro + admin bypass) |
+| AI usage limits & waitlist | Implemented |
+| Admin panel | Implemented (`/admin`, `/admin/waitlist`) |
 
 ---
 
-## 3. Estructura del repositorio
+## 2. High-level architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              Browser (React 19)                              │
+│  shadcn/ui · Client Components (dialogs, study, auth triggers)              │
+└───────────────────────────────────┬─────────────────────────────────────────┘
+                                    │ HTTPS
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         Vercel — Next.js 16 App Router                       │
+│  ┌─────────────┐  ┌──────────────────┐  ┌─────────────────────────────────┐ │
+│  │  proxy.ts   │  │ Server Components │  │ Server Actions ("use server")   │ │
+│  │ clerkMiddle │  │ auth() + queries  │  │ Zod → auth → db/queries         │ │
+│  │ ware        │  │ from db/queries/  │  │ revalidatePath                  │ │
+│  └──────┬──────┘  └────────┬─────────┘  └───────────────┬─────────────────┘ │
+│         │                  │                             │                   │
+│         └──────────────────┴─────────────────────────────┘                   │
+│                                    │                                         │
+│         ┌──────────────────────────┼──────────────────────────┐              │
+│         ▼                          ▼                          ▼              │
+│  lib/ai/ (OpenAI)          lib/billing/              lib/admin/              │
+│  lib/waitlist/             lib/cards/                  lib/generate-cards-*    │
+└─────────┬──────────────────────────┬──────────────────────────┬──────────────┘
+          │                          │                          │
+          ▼                          ▼                          ▼
+   OpenAI API                  Clerk API                 Neon PostgreSQL
+   (gpt-5-mini)           (auth, billing, users)         (Drizzle ORM)
+```
+
+---
+
+## 3. Technology stack
+
+| Technology | Version | Role |
+|------------|---------|------|
+| Next.js | 16.x | App Router, RSC, Server Actions, `proxy.ts` |
+| React | 19.x | UI |
+| TypeScript | 5.x | Static typing |
+| Tailwind CSS | 4.x | Styling (`globals.css` tokens) |
+| shadcn/ui | 4.x (base-nova) | UI components only |
+| Clerk | 7.x | Auth, billing features, user management |
+| Drizzle ORM | 0.45.x | Database access |
+| Neon | serverless driver | PostgreSQL hosting |
+| Vercel AI SDK (`ai`) | 6.x | Structured OpenAI generation |
+| OpenAI (`@ai-sdk/openai`) | 3.x | `gpt-5-mini` model |
+| Zod | 4.x | Input validation in Server Actions |
+| Vitest | 4.x | Unit tests for AI/admin helpers |
+
+---
+
+## 4. Repository structure
 
 ```
 flashycardycourse/
-├── app/                    # App Router (rutas, layouts, estilos globales)
-│   ├── layout.tsx          # Layout raíz: fuentes, Clerk, cabecera
-│   ├── page.tsx            # Página de inicio (/)
-│   └── globals.css         # Tokens de diseño, tema oscuro, Tailwind + shadcn
-├── components/
-│   ├── ui/                 # Componentes shadcn (p. ej. button.tsx)
-│   └── auth-buttons.tsx    # Botones Sign In / Sign Up (cliente)
+├── app/
+│   ├── layout.tsx              # Root layout, ClerkProvider, header
+│   ├── page.tsx                # Landing (redirects signed-in → /dashboard)
+│   ├── dashboard/page.tsx      # Deck list
+│   ├── deck/[deckId]/
+│   │   ├── page.tsx            # Deck detail + cards
+│   │   └── study/page.tsx      # Study session
+│   ├── pricing/page.tsx        # Clerk PricingTable
+│   ├── admin/
+│   │   ├── page.tsx            # User management
+│   │   └── waitlist/page.tsx   # Waitlist analytics
+│   └── actions/                # Server Actions
+│       ├── decks.ts
+│       ├── cards.ts
+│       ├── delete-deck.ts
+│       ├── generate-cards.ts
+│       ├── waitlist.ts
+│       └── admin.ts
+├── components/                   # UI (shadcn + feature components)
+├── db/
+│   ├── schema.ts
+│   ├── index.ts                # Neon + Drizzle client
+│   └── queries/                # All DB reads/writes
 ├── lib/
-│   └── utils.ts            # Utilidad `cn()` para clases CSS
-├── docs/
-│   └── ARCHITECTURE.md     # Este documento
-├── proxy.ts                # Proxy de red (auth Clerk en cada request)
-├── components.json         # Configuración shadcn CLI
-├── next.config.ts
-├── postcss.config.mjs
-├── tsconfig.json           # Alias `@/*` → raíz del proyecto
-├── package.json
-└── .cursor/rules/          # Reglas para el IDE (p. ej. obligar shadcn)
+│   ├── ai/                     # Generation, limits, prompts, validation
+│   ├── admin/                  # Admin auth + Clerk user ops
+│   ├── billing/                # Entitlement helpers
+│   ├── cards/                  # Card field limits
+│   └── waitlist/               # Schemas, privacy, status
+├── proxy.ts                    # Clerk middleware (Next 16)
+├── docs/                       # Project documentation
+└── .cursor/rules/              # IDE conventions
 ```
 
-### Alias de importación
+**Import alias:** `@/*` → project root (`tsconfig.json`).
 
-En `tsconfig.json`, `@/*` apunta a la raíz del proyecto:
+---
 
-```ts
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+## 5. Frontend architecture
+
+### Rendering model
+
+- **Server Components** fetch data via `auth()` + `db/queries/` helpers. Used for pages: dashboard, deck detail, study (data load), admin, pricing shell.
+- **Client Components** (`"use client"`) handle interactivity: dialogs, forms, study UI, auth modal triggers, AI generation dialog.
+- **No Route Handlers** (`app/api/`) and **no client-side data fetching** for page-level reads.
+
+### UI system
+
+- All controls use **shadcn/ui** from `@/components/ui/*`.
+- Clerk Sign In / Sign Up open in **modal** mode; triggers are shadcn `<Button>`.
+- Dark theme fixed in root layout; Poppins via `next/font/google`.
+
+### Routes
+
+| Route | Type | Auth | Description |
+|-------|------|------|-------------|
+| `/` | RSC | Public | Landing; signed-in users redirect to `/dashboard` |
+| `/dashboard` | RSC | Required | List decks, create deck, deck limit UI |
+| `/deck/[deckId]` | RSC | Required | View/edit deck, cards, AI generate |
+| `/deck/[deckId]/study` | RSC + client | Required | Flip-card study session |
+| `/pricing` | RSC | Public | Clerk `<PricingTable />` |
+| `/admin` | RSC | Clerk session + admin role | Suspend/delete users |
+| `/admin/waitlist` | RSC | Allowlisted admin only | Waitlist lead dashboard |
+
+---
+
+## 6. Backend architecture
+
+### Server Actions (mutations)
+
+All writes go through Server Actions with this pattern:
+
+1. Parse typed input with **Zod** (never `FormData`).
+2. Call `auth()` for `userId` and optionally `has()` for billing features.
+3. Delegate to **`db/queries/`** — no inline Drizzle in actions.
+4. `revalidatePath()` affected routes.
+
+| Action file | Operations |
+|-------------|------------|
+| `decks.ts` | Create, update deck |
+| `delete-deck.ts` | Delete deck (cascade cards) |
+| `cards.ts` | Create, update, delete card |
+| `generate-cards.ts` | AI generation orchestration |
+| `waitlist.ts` | Join Pro waitlist |
+| `admin.ts` | Suspend, unsuspend, delete user |
+
+### Data access layer
+
+All Drizzle queries live in `db/queries/`:
+
+| File | Responsibility |
+|------|----------------|
+| `decks.ts` | Deck CRUD, transactional deck-limit insert |
+| `cards.ts` | Card CRUD scoped via deck ownership join |
+| `ai-generation-usage.ts` | Usage reservation with advisory locks |
+| `waitlist.ts` | Waitlist CRUD and aggregations |
+| `admin-decks.ts` | Admin-only bulk deck delete, deck counts |
+
+---
+
+## 7. Authentication architecture
+
+```
+Request → proxy.ts (clerkMiddleware)
+              │
+              ├─ /admin* → auth.protect() (must be signed in)
+              │
+              └─ All routes → Clerk session attached
+
+Page / Action → auth() from @clerk/nextjs/server
+              │
+              ├─ userId from session (never from client)
+              ├─ has({ feature }) for billing entitlements
+              └─ redirect("/") if unauthenticated on protected pages
 ```
 
-`components.json` define los mismos alias para la CLI de shadcn (`@/components`, `@/lib`, `@/hooks`, etc.).
+### Clerk integration
+
+| Piece | Location | Purpose |
+|-------|----------|---------|
+| Session middleware | `proxy.ts` | Runs on every matched request |
+| Provider | `app/layout.tsx` | `ClerkProvider`, dark theme, post-auth redirect to `/dashboard` |
+| Modal auth | `components/auth-buttons.tsx` | `SignInButton` / `SignUpButton` `mode="modal"` |
+| Header | `components/header-auth.tsx` | Pricing link, auth buttons, Pro/Free badge, `UserButton` |
+| Billing UI | `app/pricing/page.tsx` | `<PricingTable />` |
+
+### Data isolation
+
+- **Decks:** every query filters by `clerkUserId` from `auth()`.
+- **Cards:** no `clerkUserId` column; ownership verified via `INNER JOIN decks` on `deckId` + user's `clerkUserId`.
 
 ---
 
-## 4. Diagrama de capas (estado actual)
+## 8. Billing & entitlements architecture
 
-```mermaid
-flowchart TB
-  subgraph Cliente["Navegador"]
-    UI["React 19 + shadcn"]
-    ClerkUI["Componentes Clerk<br/>(modales, UserButton)"]
-  end
+Configured in the **Clerk Dashboard** (Clerk Billing B2C):
 
-  subgraph Next["Next.js 16 — App Router"]
-    RSC["Server Components<br/>(layout, page)"]
-    RCC["Client Components<br/>(auth-buttons)"]
-    Proxy["proxy.ts<br/>clerkMiddleware()"]
-  end
+| Plan slug | Features |
+|-----------|----------|
+| `free_user` | `3_deck_limit` — max 3 decks |
+| `pro` | `unlimited_decks`, `ai_flashcard_generation` |
 
-  subgraph Externo["Servicios externos"]
-    ClerkAPI["Clerk API<br/>(auth, sesión)"]
-  end
+Server enforcement in `lib/billing/entitlements.ts`:
 
-  UI --> RSC
-  UI --> RCC
-  RCC --> ClerkUI
-  RSC --> ClerkUI
-  Proxy --> ClerkAPI
-  ClerkUI --> ClerkAPI
+- `hasUnlimitedDecks(has)` → skip 3-deck cap
+- `hasAIFlashcardGeneration(has)` → allow AI (unless admin)
+- Deck creation uses **transactional insert** with `pg_advisory_xact_lock` when limit applies
+
+Client visibility via Clerk `<Show when={{ feature: ... }}>` and `<Show when={{ plan: "pro" }}>`.
+
+**No Stripe integration** in the codebase — billing is Clerk-native.
+
+---
+
+## 9. AI generation architecture
+
+```
+User clicks "Generate cards with AI" (Pro or admin)
+        │
+        ▼
+generateCardsWithAI (Server Action)
+        │
+        ├─ auth() + Zod validate deckId/options
+        ├─ Verify deck ownership + title/description present
+        ├─ Admin? → skip Pro check + usage limits
+        ├─ Pro? → has({ feature: "ai_flashcard_generation" })
+        ├─ reserveAiGenerationWithinLimits() → DB transaction
+        │     (daily / monthly user / global monthly caps)
+        │
+        ▼
+generateFlashcards() in lib/ai/
+        │
+        ├─ Model: openai("gpt-5-mini") via @ai-sdk/openai
+        ├─ Structured output: Zod schema, 20 cards per run
+        ├─ Batched generation (6 cards/batch), review pass
+        ├─ Sanitize + dedupe against existing deck cards
+        │
+        ▼
+createCardRecordsForDeck() → persist cards
+        │
+        └─ revalidatePath deck + study pages
 ```
 
-**Flujo de una petición:**
+### Generation options
 
-1. El navegador solicita una ruta (p. ej. `/`).
-2. `proxy.ts` ejecuta `clerkMiddleware()` y adjunta contexto de sesión Clerk cuando aplica.
-3. Next renderiza el árbol RSC: `app/layout.tsx` envuelve la app en `ClerkProvider` y pinta la cabecera.
-4. `app/page.tsx` renderiza el contenido de la landing (Server Component, sin `"use client"`).
-5. Los botones de auth son Client Components que abren modales de Clerk.
+Deck **name** = topic; **description** = scope. User selects language, level (beginner/intermediate/advanced), and format (Q&A, term/definition, translation).
 
----
+### Usage limits (demo protection)
 
-## 5. Enrutado y páginas
+Defaults (overridable via env):
 
-| Ruta | Archivo | Tipo | Descripción |
-|------|---------|------|-------------|
-| `/` | `app/page.tsx` | Server Component | Landing: bienvenida y CTA para autenticarse |
+| Limit | Default | Env var |
+|-------|---------|---------|
+| Per user per day | 3 | `AI_USER_DAILY_LIMIT` |
+| Per user per month | 20 | `AI_USER_MONTHLY_LIMIT` |
+| Global per month | 100 | `AI_GLOBAL_MONTHLY_LIMIT` |
 
-No hay rutas API (`app/api/`) ni rutas dinámicas todavía. Cuando existan mazos o estudio, se recomienda:
-
-- Rutas bajo `app/(dashboard)/...` o `app/decks/[id]/...`
-- Server Actions o Route Handlers para mutaciones
-- Protección con `auth()` de Clerk en servidor
+Reservation uses PostgreSQL advisory locks + conditional `INSERT` in a transaction (`db/queries/ai-generation-usage.ts`). Usage is **recorded before** the OpenAI call; failed persistence still consumes a credit.
 
 ---
 
-## 6. Autenticación (Clerk)
+## 10. Waitlist architecture
 
-### Responsabilidades
+Triggered when a Pro user hits an AI usage limit. The UI shows `ProWaitlistForm` with:
 
-| Pieza | Ubicación | Función |
-|-------|-----------|---------|
-| Middleware de sesión | `proxy.ts` | Intercepta requests; integra Clerk en el pipeline de Next |
-| Proveedor de contexto | `app/layout.tsx` → `ClerkProvider` | Tema oscuro Clerk (`@clerk/ui/themes`) |
-| UI condicional | `Show` + `UserButton` / `AuthButtons` | Cabecera según `signed-in` / `signed-out` |
-| Botones modales | `components/auth-buttons.tsx` | `SignInButton` / `SignUpButton` con `mode="modal"` |
+- Name, verified email (from Clerk), optional interest category, required price expectation, privacy acknowledgment
+- Source tag derived from limit type: `global_limit`, `user_daily_limit`, `user_monthly_limit`
 
-### Patrón Server vs Client
+Stored in `waitlist` table. Admin dashboard at `/admin/waitlist` (allowlisted IDs only) shows totals, breakdowns, and recent leads.
 
-- **Server:** `layout.tsx` usa `ClerkProvider`, `Show`, `UserButton` sin `"use client"` donde Clerk lo permite en tu versión.
-- **Client:** `auth-buttons.tsx` declara `"use client"` porque envuelve botones shadcn dentro de los triggers de Clerk.
+---
 
-### Proteger rutas futuras
+## 11. Admin architecture
 
-Ejemplo orientativo (no implementado aún):
+### Authorization (two tiers)
 
-```ts
-// app/dashboard/page.tsx
-import { auth } from "@clerk/nextjs/server";
-import { redirect } from "next/navigation";
+| Check | Used for |
+|-------|----------|
+| `isAdminUser(userId)` | AI bypass, `/admin` page, admin Server Actions |
+| `isAllowlistedAdmin(userId)` | `/admin/waitlist` page only |
 
-export default async function DashboardPage() {
-  const { userId } = await auth();
-  if (!userId) redirect("/");
-  // ...
-}
+`isAdminUser` returns true if:
+
+1. User ID is in `ADMIN_CLERK_USER_IDS` (comma-separated env), **or**
+2. Clerk `publicMetadata.role === "admin"`
+
+### Admin capabilities
+
+- List Clerk users (latest 100) with deck counts
+- Suspend / unsuspend (Clerk ban)
+- Delete user: remove decks from DB, then delete Clerk user
+- View waitlist analytics
+
+`proxy.ts` calls `auth.protect()` on `/admin*` routes (requires sign-in; role checked in page/action).
+
+---
+
+## 12. Database schema
+
+PostgreSQL on **Neon**, accessed via `@neondatabase/serverless` + Drizzle.
+
+```
+decks
+├── id              integer PK (identity)
+├── clerkUserId     varchar(255) NOT NULL
+├── name            varchar(255) NOT NULL
+├── description     text
+├── createdAt       timestamp
+└── updatedAt       timestamp
+
+cards
+├── id              integer PK (identity)
+├── deckId          integer FK → decks.id ON DELETE CASCADE
+├── front           text NOT NULL
+├── back            text NOT NULL
+├── createdAt       timestamp
+└── updatedAt       timestamp
+
+ai_generation_usage
+├── id              integer PK (identity)
+├── clerkUserId     varchar(255) NOT NULL
+├── deckId          integer FK → decks.id ON DELETE SET NULL
+└── createdAt       timestamp
+
+waitlist
+├── id              integer PK (identity)
+├── clerkUserId     varchar(255) UNIQUE (nullable)
+├── name            varchar(255) NOT NULL
+├── email           varchar(255) NOT NULL UNIQUE
+├── interestCategory varchar(100)
+├── priceExpectation varchar(50)
+├── source          varchar(100) NOT NULL
+└── createdAt       timestamp
 ```
 
-También se puede restringir en `proxy.ts` con `createRouteMatcher` de Clerk.
+Schema sync: `npm run db:push` (Drizzle Kit). No committed migration folder at time of review.
 
 ---
 
-## 7. Interfaz de usuario y diseño
+## 13. Environment variables
 
-### shadcn/ui
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Yes | Clerk publishable key |
+| `CLERK_SECRET_KEY` | Yes | Clerk secret key (server only) |
+| `DATABASE_URL` | Yes | Neon PostgreSQL connection string |
+| `OPENAI_API_KEY` | Yes (for AI) | OpenAI API key (server only) |
+| `ADMIN_CLERK_USER_IDS` | No | Comma-separated Clerk user IDs for admin |
+| `AI_USER_DAILY_LIMIT` | No | Default: 3 |
+| `AI_USER_MONTHLY_LIMIT` | No | Default: 20 |
+| `AI_GLOBAL_MONTHLY_LIMIT` | No | Default: 100 |
 
-- Configuración: `components.json` — estilo **base-nova**, `cssVariables: true`, iconos **lucide**.
-- Componentes instalados: `components/ui/button.tsx` (más se añaden con la CLI).
-- **Regla del proyecto:** no introducir otras librerías de componentes (MUI, Chakra, etc.). Ver `.cursor/rules/shadcn-ui.mdc`.
+See `.env.example` for a starter template.
 
-Añadir un componente:
+---
 
-```bash
-npx shadcn@latest add card
+## 14. Production deployment architecture
+
+```
+GitHub repo → Vercel (build: next build)
+                  │
+                  ├─ Environment variables (Clerk, Neon, OpenAI, admin, AI limits)
+                  ├─ Custom domain (optional, configured in Vercel + Clerk)
+                  │
+                  ├─ Clerk (hosted auth + billing)
+                  └─ Neon (serverless Postgres, DATABASE_URL)
 ```
 
-### Tema y tipografía
-
-- **Modo oscuro fijo:** `<html className="dark ...">` en `layout.tsx`.
-- **Fuente:** Poppins vía `next/font/google`, variable CSS `--font-poppins`.
-- **Tokens:** `app/globals.css` define variables OKLCH (`--background`, `--card`, `--primary`, etc.) y las expone a Tailwind con `@theme inline`.
-- **Colores de marca en landing:** acentos puntuales (`text-blue-500`, `bg-[#0f172a]`) además de tokens semánticos (`bg-card`).
-
-### Utilidad `cn()`
-
-`lib/utils.ts` combina `clsx` + `tailwind-merge` para fusionar clases sin conflictos. Usar en todos los componentes con variantes.
+- **No `vercel.json`** — standard Next.js zero-config deployment.
+- **No edge runtime** for DB; Neon HTTP driver runs on server.
+- **`proxy.ts`** runs in Node.js (Next 16 proxy, not Edge middleware).
+- Clerk Billing plans/features must match code expectations in the Clerk Dashboard.
 
 ---
 
-## 8. Proxy (`proxy.ts`)
+## 15. Security considerations
 
-Equivalente al middleware de Next.js anteriores, renombrado en v16:
-
-```ts
-import { clerkMiddleware } from "@clerk/nextjs/server";
-
-export default clerkMiddleware();
-
-export const config = {
-  matcher: [
-    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
-    "/(api|trpc)(.*)",
-  ],
-};
-```
-
-El `matcher` excluye estáticos de `_next` y archivos con extensión, y aplica a rutas `api` futuras.
+| Area | Implementation |
+|------|----------------|
+| Authentication | Clerk session; no custom auth |
+| Authorization | Server-side `auth()` on every protected page/action |
+| Data isolation | All deck/card queries scoped to authenticated user |
+| Input validation | Zod on all Server Actions |
+| Secrets | `.env*` gitignored; no `NEXT_PUBLIC_*` for API keys |
+| Admin | Env allowlist + optional Clerk metadata role; actions call `requireAdmin()` |
+| AI cost control | Transactional usage caps before OpenAI calls |
+| Admin waitlist | Stricter allowlist-only gate (not metadata role alone) |
+| Waitlist PII | Name + verified email stored; privacy notice required |
 
 ---
 
-## 9. Variables de entorno
+## 16. Current limitations
 
-Los secretos **no** se commitean (`.gitignore` ignora `.env*`).
-
-Crear `.env.local` en la raíz (plantilla en `.env.example`):
-
-| Variable | Obligatoria | Descripción |
-|----------|-------------|-------------|
-| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Sí | Clave pública de la aplicación Clerk |
-| `CLERK_SECRET_KEY` | Sí | Clave secreta (solo servidor) |
-
-Opcionales habituales de Clerk (URLs de redirección, webhooks, etc.) se documentarán cuando se configuren flujos adicionales.
-
-### Obtener las claves
-
-1. Crear aplicación en [Clerk Dashboard](https://dashboard.clerk.com).
-2. Copiar **Publishable key** y **Secret key** al `.env.local`.
-3. En desarrollo, Clerk suele aceptar `http://localhost:3000` como origen.
+- **Study progress** is not persisted; sessions are in-memory only.
+- **No spaced repetition** or scheduling algorithms.
+- **No REST API** or mobile clients.
+- **Clerk user list** in admin capped at 100 users per page.
+- **AI usage** is consumed even if card persistence partially fails.
+- **Billing** depends on Clerk Billing beta; no direct Stripe integration.
+- **No analytics** (product usage, funnel, etc.) beyond waitlist admin views.
+- **No automated tests** for Server Actions or integration flows (unit tests exist for AI/admin helpers only).
+- **Deck/card `updatedAt`** on decks is not auto-updated when cards change.
 
 ---
 
-## 10. Cómo replicar el proyecto desde cero
+## 17. Document maintenance
 
-### Requisitos
-
-- Node.js 20+ (recomendado LTS)
-- npm (o pnpm/yarn/bun)
-
-### Pasos
-
-```bash
-# 1. Clonar e instalar dependencias
-git clone <url-del-repo>
-cd flashycardycourse
-npm install
-
-# 2. Configurar entorno
-cp .env.example .env.local
-# Editar .env.local con las claves de Clerk
-
-# 3. Arrancar en desarrollo
-npm run dev
-```
-
-Abrir [http://localhost:3000](http://localhost:3000). La cabecera muestra **Sign In** / **Sign Up**; tras autenticarse, **UserButton**.
-
-### Scripts npm
-
-| Script | Uso |
-|--------|-----|
-| `npm run dev` | Servidor de desarrollo (Turbopack) |
-| `npm run build` | Build de producción |
-| `npm run start` | Servir build |
-| `npm run lint` | ESLint (config Next core-web-vitals + TypeScript) |
-
-### Despliegue
-
-Despliegue típico en [Vercel](https://vercel.com): definir las mismas variables de entorno de Clerk en el panel del proyecto. El build usa `next build` sin configuración extra en `next.config.ts` por ahora.
-
----
-
-## 11. Convenciones de desarrollo
-
-| Tema | Convención |
-|------|------------|
-| UI | shadcn desde `@/components/ui/*`; instalar antes de reinventar |
-| Estilos | Tailwind + tokens en `globals.css`; `cn()` para clases compuestas |
-| Componentes cliente | Solo `"use client"` cuando haya estado, efectos o APIs del navegador |
-| Auth | Clerk; no implementar auth casera |
-| Imports | Alias `@/` |
-| Commits de secretos | Nunca `.env*` ni `/.clerk/` |
-
-### Herramientas del IDE
-
-- `AGENTS.md` / `CLAUDE.md`: recordatorio de leer docs de Next 16 en `node_modules/next/dist/docs/`.
-- `.cursor/rules/shadcn-ui.mdc`: política de componentes UI.
-
----
-
-## 12. Evolución prevista (no implementada)
-
-Esta sección describe la **dirección** acordada con el producto; actualizar al implementar cada pieza.
-
-```mermaid
-flowchart LR
-  subgraph Futuro["Capas planificadas"]
-    DB["Base de datos<br/>(usuario → mazos → tarjetas)"]
-    API["Server Actions / API Routes"]
-    Study["Modo estudio + progreso"]
-  end
-  Auth["Clerk userId"] --> DB
-  DB --> API
-  API --> Study
-```
-
-| Capa | Decisión pendiente | Notas |
-|------|-------------------|--------|
-| Persistencia | Por definir (p. ej. Drizzle + Postgres, Prisma, etc.) | Asociar datos al `userId` de Clerk |
-| Modelo de dominio | `Deck`, `Card`, `StudySession`, … | CRUD por usuario autenticado |
-| Rutas protegidas | Dashboard, editor de mazo, sesión de estudio | `auth()` + layouts anidados |
-| API | Server Actions preferidas para mutaciones simples | Route Handlers si hace falta REST/webhooks |
-
-Al añadir cada capa, documentar aquí: esquema de datos, diagrama de flujo y rutas nuevas.
-
----
-
-## 13. Mantenimiento de este documento
-
-Actualizar **ARCHITECTURE.md** cuando ocurra cualquiera de:
-
-- Nueva dependencia o servicio externo
-- Nueva ruta, layout o convención de carpetas
-- Cambio en auth, proxy o variables de entorno
-- Primera versión de base de datos o modelo de dominio
-- Cambio relevante de UI (sistema de diseño, tema claro/oscuro, etc.)
-
-Incluir fecha en la cabecera y una línea en el changelog inferior.
+Update this file when adding routes, dependencies, schema changes, env vars, or auth/billing behavior.
 
 ### Changelog
 
-| Fecha | Cambio |
-|-------|--------|
-| 2026-05-19 | Documento inicial: stack, estructura, auth Clerk, UI shadcn, proxy Next 16, guía de réplica |
+| Date | Change |
+|------|--------|
+| 2026-05-19 | Initial doc (landing + auth only) |
+| 2026-05-29 | Full rewrite reflecting decks, cards, study, AI, billing, waitlist, admin |

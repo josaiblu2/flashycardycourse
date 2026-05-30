@@ -195,7 +195,7 @@ export function LandingPage() {
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
                 Free: up to {FREE_DECK_LIMIT} decks, manual cards only. Pro:
-                unlimited decks and AI generation.
+                unlimited decks, and AI generation.
               </p>
             </div>
             <Button

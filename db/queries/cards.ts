@@ -4,6 +4,40 @@ import { db } from "@/db";
 import { cards, decks } from "@/db/schema";
 import { and, desc, eq } from "drizzle-orm";
 
+export async function createCardRecordsForDeck(
+  deckId: number,
+  userId: string,
+  items: { front: string; back: string }[]
+) {
+  if (items.length === 0) {
+    return { inserted: [], failedCount: 0, deckMissing: false };
+  }
+
+  const [deck] = await db
+    .select({ id: decks.id })
+    .from(decks)
+    .where(and(eq(decks.id, deckId), eq(decks.clerkUserId, userId)));
+
+  if (!deck) {
+    return { inserted: [], failedCount: items.length, deckMissing: true };
+  }
+
+  const inserted = [];
+
+  for (const item of items) {
+    const card = await createCardRecord(deckId, userId, item);
+    if (card) {
+      inserted.push(card);
+    }
+  }
+
+  return {
+    inserted,
+    failedCount: items.length - inserted.length,
+    deckMissing: false,
+  };
+}
+
 export async function createCardRecord(
   deckId: number,
   userId: string,

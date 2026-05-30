@@ -1,5 +1,8 @@
 import type { Flashcard, GenerationContext } from "./generation-context";
-import { resolveCardLanguage } from "./generation-context";
+import {
+  MAX_EXISTING_CARDS_IN_PROMPT,
+  resolveCardLanguage,
+} from "./generation-context";
 
 const SYSTEM_PROMPT = `You are an expert educator who creates accurate, high-quality flashcards for any subject and language.
 Adapt terminology, depth, and style to the learner's topic, level, and chosen format.
@@ -54,32 +57,43 @@ Quality rules:
 - Avoid duplicate or near-duplicate concepts.`;
 }
 
+function formatExistingCardsSection(existingCards: Flashcard[]): string {
+  if (existingCards.length === 0) {
+    return "";
+  }
+
+  const cardsForPrompt = existingCards.slice(0, MAX_EXISTING_CARDS_IN_PROMPT);
+  const truncatedNote =
+    existingCards.length > MAX_EXISTING_CARDS_IN_PROMPT
+      ? `\n(${existingCards.length - MAX_EXISTING_CARDS_IN_PROMPT} more cards already exist in this deck — avoid repeating any of them.)`
+      : "";
+
+  return `\nAlready present in this deck (do not repeat these concepts):
+${cardsForPrompt
+  .map((card) => `- Front: ${card.front} | Back: ${card.back}`)
+  .join("\n")}${truncatedNote}\n`;
+}
+
 export function buildGenerationPrompt(
   context: GenerationContext,
   count: number,
   existingCards: Flashcard[]
 ): string {
-  const existingSection =
-    existingCards.length > 0
-      ? `\nAlready generated (do not repeat these concepts):\n${existingCards
-          .map((card) => `- Front: ${card.front} | Back: ${card.back}`)
-          .join("\n")}\n`
-      : "";
-
   return `${sharedRules(context)}
-${existingSection}
+${formatExistingCardsSection(existingCards)}
 Generate exactly ${count} unique flashcards.
 The "cards" array must contain exactly ${count} items.`;
 }
 
 export function buildReviewPrompt(
   context: GenerationContext,
-  cards: Flashcard[]
+  cards: Flashcard[],
+  existingDeckCards: Flashcard[] = []
 ): string {
   const cardLanguage = resolveCardLanguage(context);
 
   return `${sharedRules(context)}
-
+${formatExistingCardsSection(existingDeckCards)}
 Review and improve the flashcards below for the given topic and language.
 - Fix grammar and spelling on every card.
 - Remove or rewrite cards with invented, uncertain, or non-standard terms.

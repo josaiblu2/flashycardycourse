@@ -47,7 +47,7 @@ describe("buildGenerationPrompt", () => {
       { front: "Who was Augustus?", back: "First Roman emperor." },
     ]);
 
-    expect(prompt).toContain("Already generated");
+    expect(prompt).toContain("Already present in this deck");
     expect(prompt).toContain("Who was Augustus?");
   });
 });

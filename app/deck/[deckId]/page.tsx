@@ -3,6 +3,8 @@ import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { getDeckByIdAndUser } from "@/db/queries/decks";
 import { getCardsByDeckAndUser } from "@/db/queries/cards";
+import { isAdminUser } from "@/lib/admin/require-admin";
+import { isUserOnWaitlist } from "@/lib/waitlist/status";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
@@ -24,8 +26,12 @@ export default async function DeckPage({
 }: {
   params: Promise<{ deckId: string }>;
 }) {
-  const { userId } = await auth();
+  const { userId, has } = await auth();
   if (!userId) redirect("/");
+
+  const isAdmin = await isAdminUser(userId);
+  const canUseAI =
+    isAdmin || has({ feature: "ai_flashcard_generation" });
 
   const { deckId } = await params;
   const id = parseInt(deckId, 10);
@@ -35,6 +41,7 @@ export default async function DeckPage({
   if (!deck) notFound();
 
   const cardRows = await getCardsByDeckAndUser(id, userId);
+  const isOnWaitlist = await isUserOnWaitlist(userId);
 
   return (
     <main className="flex flex-1 flex-col px-6 py-10 max-w-5xl mx-auto w-full">
@@ -71,6 +78,9 @@ export default async function DeckPage({
               deckId={id}
               deckName={deck.name}
               deckDescription={deck.description}
+              existingCardCount={cardRows.length}
+              canUseAI={canUseAI}
+              isOnWaitlist={isOnWaitlist}
             />
             <EditDeckDialog
               deckId={deck.id}

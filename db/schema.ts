@@ -19,3 +19,21 @@ export const cards = pgTable("cards", {
   createdAt: timestamp().notNull().defaultNow(),
   updatedAt: timestamp().notNull().defaultNow(),
 });
+
+export const aiGenerationUsage = pgTable("ai_generation_usage", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  clerkUserId: varchar({ length: 255 }).notNull(),
+  deckId: integer().references(() => decks.id, { onDelete: "set null" }),
+  createdAt: timestamp().notNull().defaultNow(),
+});
+
+export const waitlist = pgTable("waitlist", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  clerkUserId: varchar({ length: 255 }).unique(),
+  name: varchar({ length: 255 }).notNull(),
+  email: varchar({ length: 255 }).notNull().unique(),
+  interestCategory: varchar({ length: 100 }),
+  priceExpectation: varchar({ length: 50 }),
+  source: varchar({ length: 100 }).notNull(),
+  createdAt: timestamp().notNull().defaultNow(),
+});

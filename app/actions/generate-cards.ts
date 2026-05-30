@@ -4,7 +4,14 @@ import { z } from "zod";
 import { auth } from "@clerk/nextjs/server";
 import { revalidatePath } from "next/cache";
 import { getDeckByIdAndUser } from "@/db/queries/decks";
-import { createCardRecord } from "@/db/queries/cards";
+import {
+  createCardRecordsForDeck,
+  getCardsByDeckAndUser,
+} from "@/db/queries/cards";
+import {
+  aiGenerationFailure,
+  type GenerateCardsWithAIResult,
+} from "@/lib/ai/generation-errors";
 import {
   CardLanguageSchema,
   DEFAULT_GENERATION_OPTIONS,
@@ -14,6 +21,8 @@ import {
   type GenerateCardsOptions,
 } from "@/lib/ai/generation-context";
 import { generateFlashcards } from "@/lib/ai/generate-flashcards";
+import { reserveAiGenerationWithinLimits } from "@/lib/ai/usage-limits";
+import { isAdminUser } from "@/lib/admin/require-admin";
 
 const CARD_COUNT = 20;
 
@@ -53,24 +62,36 @@ function buildGenerationContext(input: {
   };
 }
 
-export async function generateCardsWithAI(input: GenerateCardsInput) {
-  const parsed = GenerateCardsSchema.safeParse(input);
-  if (!parsed.success) throw new Error("Invalid input");
-
+export async function generateCardsWithAI(
+  input: GenerateCardsInput
+): Promise<GenerateCardsWithAIResult> {
   const { userId, has } = await auth();
-  if (!userId) throw new Error("Unauthorized");
-  if (!has({ feature: "ai_flashcard_generation" })) {
-    throw new Error("AI generation requires a Pro subscription.");
+  if (!userId) {
+    return aiGenerationFailure("UNAUTHENTICATED");
+  }
+
+  const parsed = GenerateCardsSchema.safeParse(input);
+  if (!parsed.success) {
+    return aiGenerationFailure("INVALID_INPUT");
   }
 
   const deck = await getDeckByIdAndUser(parsed.data.deckId, userId);
-  if (!deck) throw new Error("Deck not found");
+  if (!deck) {
+    return aiGenerationFailure(
+      "INVALID_INPUT",
+      "Deck not found."
+    );
+  }
 
   if (!deck.name.trim()) {
-    throw new Error("Please add a deck title before generating cards with AI.");
+    return aiGenerationFailure(
+      "INVALID_INPUT",
+      "Please add a deck title before generating cards with AI."
+    );
   }
   if (!deck.description?.trim()) {
-    throw new Error(
+    return aiGenerationFailure(
+      "INVALID_INPUT",
       "Please add a deck description before generating cards with AI."
     );
   }
@@ -79,7 +100,26 @@ export async function generateCardsWithAI(input: GenerateCardsInput) {
     parsed.data.options?.language === "other" &&
     !parsed.data.options.customLanguage?.trim()
   ) {
-    throw new Error("Please specify a language for your flashcards.");
+    return aiGenerationFailure(
+      "INVALID_INPUT",
+      "Please specify a language for your flashcards."
+    );
+  }
+
+  const isAdmin = await isAdminUser(userId);
+
+  if (!isAdmin) {
+    if (!has({ feature: "ai_flashcard_generation" })) {
+      return aiGenerationFailure("NOT_PRO");
+    }
+
+    const limitFailure = await reserveAiGenerationWithinLimits(
+      userId,
+      parsed.data.deckId
+    );
+    if (limitFailure) {
+      return limitFailure;
+    }
   }
 
   const context = buildGenerationContext({
@@ -89,14 +129,48 @@ export async function generateCardsWithAI(input: GenerateCardsInput) {
     options: parsed.data.options,
   });
 
-  const generated = await generateFlashcards(context);
+  const existingCards = (
+    await getCardsByDeckAndUser(parsed.data.deckId, userId)
+  ).map(({ card }) => ({
+    front: card.front,
+    back: card.back,
+  }));
 
-  for (const card of generated) {
-    await createCardRecord(parsed.data.deckId, userId, card);
+  let generated;
+  try {
+    generated = await generateFlashcards(context, existingCards);
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Failed to generate cards.";
+    return aiGenerationFailure("INVALID_INPUT", message);
+  }
+
+  const { inserted, failedCount, deckMissing } = await createCardRecordsForDeck(
+    parsed.data.deckId,
+    userId,
+    generated
+  );
+
+  if (deckMissing) {
+    return aiGenerationFailure(
+      "CARD_PERSISTENCE_FAILED",
+      "Deck not found while saving generated cards. Your AI usage was recorded. Please refresh and try again."
+    );
+  }
+
+  if (failedCount > 0 || inserted.length === 0) {
+    const saved = inserted.length;
+    const total = generated.length;
+    return aiGenerationFailure(
+      "CARD_PERSISTENCE_FAILED",
+      saved > 0
+        ? `Generated ${total} flashcards but only ${saved} were saved. Please refresh the deck and try again if cards are missing. Your AI usage was recorded.`
+        : "Flashcards were generated but could not be saved. Please refresh and try again. Your AI usage was recorded."
+    );
   }
 
   revalidatePath(`/deck/${parsed.data.deckId}`);
   revalidatePath(`/deck/${parsed.data.deckId}/study`);
 
-  return { count: generated.length };
+  return { success: true, count: inserted.length };
 }

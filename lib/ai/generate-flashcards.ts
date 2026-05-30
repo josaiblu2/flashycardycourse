@@ -11,7 +11,10 @@ import {
   type Flashcard,
   type GenerationContext,
 } from "./generation-context";
-import { sanitizeFlashcards } from "./validate-flashcards";
+import {
+  excludeExistingFlashcards,
+  sanitizeFlashcards,
+} from "./validate-flashcards";
 
 // Use the OpenAI provider so OPENAI_API_KEY is honored. The gateway string
 // "openai/gpt-5.3-chat" requires AI_GATEWAY_API_KEY instead.
@@ -65,7 +68,8 @@ async function generateBatch(
 
 async function reviewFlashcards(
   context: GenerationContext,
-  cards: Flashcard[]
+  cards: Flashcard[],
+  existingDeckCards: Flashcard[]
 ): Promise<Flashcard[]> {
   if (cards.length === 0) {
     return cards;
@@ -77,7 +81,7 @@ async function reviewFlashcards(
     output: Output.object({
       schema: buildFlashcardsSchema(cards.length),
     }),
-    prompt: buildReviewPrompt(context, cards),
+    prompt: buildReviewPrompt(context, cards, existingDeckCards),
   });
 
   if (output.cards.length !== cards.length) {
@@ -87,11 +91,20 @@ async function reviewFlashcards(
   return output.cards;
 }
 
+function mergeExistingCards(
+  existingDeckCards: Flashcard[],
+  generatedCards: Flashcard[]
+): Flashcard[] {
+  return [...existingDeckCards, ...generatedCards];
+}
+
 export async function generateFlashcards(
-  context: GenerationContext
+  context: GenerationContext,
+  existingDeckCards: Flashcard[] = []
 ): Promise<Flashcard[]> {
   assertOpenAiKey();
 
+  const deckExisting = sanitizeFlashcards(existingDeckCards);
   const collected: Flashcard[] = [];
   const targetCount = context.count;
 
@@ -104,8 +117,15 @@ export async function generateFlashcards(
 
     for (let attempt = 0; attempt < MAX_BATCH_ATTEMPTS; attempt++) {
       try {
-        const generated = await generateBatch(context, remaining, collected);
-        batch = sanitizeFlashcards(generated);
+        const generated = await generateBatch(
+          context,
+          remaining,
+          mergeExistingCards(deckExisting, collected)
+        );
+        batch = excludeExistingFlashcards(
+          sanitizeFlashcards(generated),
+          deckExisting
+        );
 
         if (batch.length >= remaining) {
           batch = batch.slice(0, remaining);
@@ -121,19 +141,34 @@ export async function generateFlashcards(
     }
 
     collected.push(...batch);
-    collected.splice(0, collected.length, ...sanitizeFlashcards(collected));
+    collected.splice(
+      0,
+      collected.length,
+      ...excludeExistingFlashcards(sanitizeFlashcards(collected), deckExisting)
+    );
   }
 
   if (collected.length === 0) {
-    throw new Error("AI failed to generate flashcards. Please try again.");
+    throw new Error(
+      deckExisting.length > 0
+        ? "AI could not generate new flashcards that are not already in this deck. Try updating the deck description or removing similar cards."
+        : "AI failed to generate flashcards. Please try again."
+    );
   }
 
   let reviewed = collected.slice(0, targetCount);
 
   for (let attempt = 0; attempt < MAX_REVIEW_ATTEMPTS; attempt++) {
     try {
-      const reviewedBatch = await reviewFlashcards(context, reviewed);
-      const cleaned = sanitizeFlashcards(reviewedBatch);
+      const reviewedBatch = await reviewFlashcards(
+        context,
+        reviewed,
+        deckExisting
+      );
+      const cleaned = excludeExistingFlashcards(
+        sanitizeFlashcards(reviewedBatch),
+        deckExisting
+      );
 
       if (cleaned.length >= reviewed.length) {
         reviewed = cleaned.slice(0, targetCount);
@@ -146,11 +181,12 @@ export async function generateFlashcards(
     }
   }
 
-  reviewed = sanitizeFlashcards(reviewed).slice(0, targetCount);
+  reviewed = excludeExistingFlashcards(
+    sanitizeFlashcards(reviewed),
+    deckExisting
+  ).slice(0, targetCount);
 
   if (reviewed.length < targetCount) {
-    const missing = targetCount - reviewed.length;
-
     for (
       let attempt = 0;
       attempt < MAX_BATCH_ATTEMPTS && reviewed.length < targetCount;
@@ -158,23 +194,27 @@ export async function generateFlashcards(
     ) {
       try {
         const remaining = targetCount - reviewed.length;
-        const generated = await generateBatch(context, remaining, reviewed);
-        reviewed = sanitizeFlashcards([...reviewed, ...generated]).slice(
-          0,
-          targetCount
+        const generated = await generateBatch(
+          context,
+          remaining,
+          mergeExistingCards(deckExisting, reviewed)
         );
+        reviewed = excludeExistingFlashcards(
+          sanitizeFlashcards([...reviewed, ...generated]),
+          deckExisting
+        ).slice(0, targetCount);
       } catch {
         break;
       }
     }
-
-    if (reviewed.length < targetCount && missing > 0) {
-      // Accept fewer cards only if we could not fill gaps after retries.
-    }
   }
 
   if (reviewed.length === 0) {
-    throw new Error("AI failed to generate flashcards. Please try again.");
+    throw new Error(
+      deckExisting.length > 0
+        ? "AI could not generate new flashcards that are not already in this deck. Try updating the deck description or removing similar cards."
+        : "AI failed to generate flashcards. Please try again."
+    );
   }
 
   return reviewed;

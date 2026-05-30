@@ -14,7 +14,7 @@ export default function PricingPage() {
           Pricing
         </h1>
         <p className="text-muted-foreground mt-1">
-          Upgrade to Pro for unlimited decks and AI flashcard generation.
+          Upgrade to Pro for unlimited decks, and AI generation.
         </p>
       </div>
       <PricingTable />

@@ -1,7 +1,13 @@
-# Documentación del proyecto
+# Documentation
 
-| Documento | Contenido |
-|-----------|-----------|
-| [ARCHITECTURE.md](./ARCHITECTURE.md) | Arquitectura técnica, stack, flujos, convenciones y guía para replicar el entorno |
+Project documentation reflects the **actual codebase** as of the last review date in each file.
 
-La documentación de arquitectura se mantiene al día con el código. Si implementas una capa nueva (base de datos, rutas, etc.), actualiza `ARCHITECTURE.md` en el mismo PR o commit.
+| Document | Content |
+|----------|---------|
+| [ARCHITECTURE_BRIEF.md](./ARCHITECTURE_BRIEF.md) | One-page printable architecture summary |
+| [ARCHITECTURE.md](./ARCHITECTURE.md) | System architecture, flows, schema, deployment, security |
+| [FEATURES.md](./FEATURES.md) | Implemented features, plan capabilities, limits, waitlist |
+| [ROADMAP.md](./ROADMAP.md) | Current state and planned improvements |
+| [PORTFOLIO_SUMMARY.md](./PORTFOLIO_SUMMARY.md) | Executive summary for resumes, LinkedIn, and portfolio sites |
+
+Update the relevant doc when you add routes, dependencies, schema changes, env vars, or billing/auth behavior.

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   dedupeFlashcards,
+  excludeExistingFlashcards,
   filterValidFlashcards,
   isValidFlashcard,
   sanitizeFlashcards,
@@ -46,6 +47,31 @@ describe("dedupeFlashcards", () => {
     expect(result).toHaveLength(2);
     expect(result[0]?.front).toBe("Placa dental");
     expect(result[1]?.front).toBe("Molar");
+  });
+});
+
+describe("excludeExistingFlashcards", () => {
+  it("removes cards whose front matches an existing deck card", () => {
+    const existing = [{ front: "Placa dental", back: "Definición original." }];
+    const result = excludeExistingFlashcards(
+      [
+        { front: "Placa dental", back: "Definición duplicada." },
+        { front: "Molar", back: "Diente posterior." },
+      ],
+      existing
+    );
+
+    expect(result).toEqual([{ front: "Molar", back: "Diente posterior." }]);
+  });
+
+  it("matches existing cards case-insensitively", () => {
+    const existing = [{ front: "Placa Dental", back: "Definición." }];
+    const result = excludeExistingFlashcards(
+      [{ front: "placa dental", back: "Otra definición." }],
+      existing
+    );
+
+    expect(result).toEqual([]);
   });
 });
 

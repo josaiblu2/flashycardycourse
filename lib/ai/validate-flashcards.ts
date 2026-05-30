@@ -67,6 +67,19 @@ export function filterValidFlashcards(cards: Flashcard[]): Flashcard[] {
   return cards.filter(isValidFlashcard);
 }
 
+export function buildFrontKeySet(cards: Flashcard[]): Set<string> {
+  const keys = new Set<string>();
+
+  for (const card of cards) {
+    const key = normalizeForComparison(card.front);
+    if (key) {
+      keys.add(key);
+    }
+  }
+
+  return keys;
+}
+
 export function dedupeFlashcards(cards: Flashcard[]): Flashcard[] {
   const seen = new Set<string>();
   const result: Flashcard[] = [];
@@ -85,6 +98,18 @@ export function dedupeFlashcards(cards: Flashcard[]): Flashcard[] {
   }
 
   return result;
+}
+
+export function excludeExistingFlashcards(
+  cards: Flashcard[],
+  existing: Flashcard[]
+): Flashcard[] {
+  const existingKeys = buildFrontKeySet(existing);
+
+  return cards.filter((card) => {
+    const key = normalizeForComparison(card.front);
+    return key && !existingKeys.has(key);
+  });
 }
 
 export function sanitizeFlashcards(cards: Flashcard[]): Flashcard[] {

@@ -1,13 +1,21 @@
 import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
-import { getAdminUserSummaries } from "@/lib/admin/users";
-import { isAdminConfigured, isAdminUser } from "@/lib/admin/require-admin";
-import { AdminUserTable } from "@/components/admin-user-table";
+import { AdminWaitlistDashboard } from "@/components/admin-waitlist-dashboard";
 import { AuthButtons } from "@/components/auth-buttons";
+import {
+  countWaitlistLeads,
+  getRecentWaitlistLeads,
+  getWaitlistLeadsByCategory,
+  getWaitlistLeadsByPriceExpectation,
+} from "@/db/queries/waitlist";
+import {
+  isAdminConfigured,
+  isAllowlistedAdmin,
+} from "@/lib/admin/require-admin";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 
-export default async function AdminPage() {
+export default async function AdminWaitlistPage() {
   const configured = isAdminConfigured();
 
   if (!configured) {
@@ -31,10 +39,10 @@ export default async function AdminPage() {
       <main className="flex flex-1 flex-col items-center justify-center gap-6 px-6 py-10">
         <div className="max-w-md text-center space-y-2">
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Admin sign in
+            Waitlist admin
           </h1>
           <p className="text-muted-foreground">
-            Sign in with your Clerk account to access the admin panel.
+            Sign in with an allowlisted Clerk account to view waitlist leads.
           </p>
         </div>
         <AuthButtons />
@@ -42,15 +50,13 @@ export default async function AdminPage() {
     );
   }
 
-  const isAdmin = await isAdminUser(userId);
-
-  if (!isAdmin) {
+  if (!isAllowlistedAdmin(userId)) {
     return (
       <main className="flex flex-1 flex-col items-center justify-center gap-6 px-6 py-10">
         <Alert variant="destructive" className="max-w-md">
           <AlertTitle>Access denied</AlertTitle>
           <AlertDescription>
-            Your account is not authorized to use the admin panel.
+            Only accounts listed in ADMIN_CLERK_USER_IDS can access this page.
           </AlertDescription>
         </Alert>
         <Button variant="outline" nativeButton={false} render={<Link href="/dashboard" />}>
@@ -60,24 +66,30 @@ export default async function AdminPage() {
     );
   }
 
-  const users = await getAdminUserSummaries();
+  const [totalLeads, byCategory, byPriceExpectation, recentLeads] =
+    await Promise.all([
+      countWaitlistLeads(),
+      getWaitlistLeadsByCategory(),
+      getWaitlistLeadsByPriceExpectation(),
+      getRecentWaitlistLeads(50),
+    ]);
 
   return (
     <main className="flex flex-1 flex-col px-6 py-10 max-w-6xl mx-auto w-full">
-      <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">
-            Admin
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Suspend or delete user accounts registered through Clerk.
-          </p>
-        </div>
-        <Button variant="outline" nativeButton={false} render={<Link href="/admin/waitlist" />}>
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">
           Waitlist leads
-        </Button>
+        </h1>
+        <p className="text-muted-foreground mt-1">
+          Monitor Pro waitlist signups and interest breakdowns.
+        </p>
       </div>
-      <AdminUserTable users={users} />
+      <AdminWaitlistDashboard
+        totalLeads={totalLeads}
+        byCategory={byCategory}
+        byPriceExpectation={byPriceExpectation}
+        recentLeads={recentLeads}
+      />
     </main>
   );
 }

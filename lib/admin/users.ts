@@ -2,7 +2,7 @@ import "server-only";
 
 import { clerkClient } from "@clerk/nextjs/server";
 import { getDeckCountsByUserIds } from "@/db/queries/admin-decks";
-import { requireAdminSession } from "@/lib/admin/session";
+import { requireAdmin } from "@/lib/admin/require-admin";
 
 export type AdminUserSummary = {
   id: string;
@@ -14,7 +14,7 @@ export type AdminUserSummary = {
 };
 
 export async function getAdminUserSummaries(): Promise<AdminUserSummary[]> {
-  await requireAdminSession();
+  await requireAdmin();
 
   const client = await clerkClient();
   const { data: users } = await client.users.getUserList({
@@ -38,16 +38,19 @@ export async function getAdminUserSummaries(): Promise<AdminUserSummary[]> {
 }
 
 export async function banClerkUser(userId: string) {
+  await requireAdmin();
   const client = await clerkClient();
   await client.users.banUser(userId);
 }
 
 export async function unbanClerkUser(userId: string) {
+  await requireAdmin();
   const client = await clerkClient();
   await client.users.unbanUser(userId);
 }
 
 export async function deleteClerkUser(userId: string) {
+  await requireAdmin();
   const client = await clerkClient();
   await client.users.deleteUser(userId);
 }

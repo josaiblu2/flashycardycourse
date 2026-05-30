@@ -1,9 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
-  adminLogout,
   deleteUserAccount,
   suspendUser,
   unsuspendUser,
@@ -52,20 +52,14 @@ export function AdminUserTable({ users }: AdminUserTableProps) {
     });
   }
 
-  function handleLogout() {
-    runAction(async () => {
-      await adminLogout();
-    });
-  }
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-4">
         <p className="text-sm text-muted-foreground">
           {users.length} user{users.length === 1 ? "" : "s"} shown (latest 100)
         </p>
-        <Button variant="outline" onClick={handleLogout} disabled={isPending}>
-          Sign out
+        <Button variant="outline" nativeButton={false} render={<Link href="/dashboard" />}>
+          Back to dashboard
         </Button>
       </div>
 

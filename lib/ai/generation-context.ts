@@ -106,6 +106,25 @@ export const FLASHCARD_FORMAT_OPTIONS: {
 
 export const FLASHCARD_BATCH_SIZE = 6;
 
+/** Max deck cards included in the AI prompt to avoid duplicates. */
+export const MAX_EXISTING_CARDS_IN_PROMPT = 120;
+
+export function getExistingCardsGenerationNotice(
+  existingCardCount: number
+): string | null {
+  if (existingCardCount <= 0) {
+    return null;
+  }
+
+  const cardLabel = existingCardCount === 1 ? "card" : "cards";
+
+  if (existingCardCount <= MAX_EXISTING_CARDS_IN_PROMPT) {
+    return `This deck already has ${existingCardCount} ${cardLabel}. AI will generate only new concepts and skip anything that matches them.`;
+  }
+
+  return `This deck already has ${existingCardCount} ${cardLabel}. The ${MAX_EXISTING_CARDS_IN_PROMPT} most recent are sent to the AI so it avoids duplicates; server-side checks cover the rest.`;
+}
+
 const LANGUAGE_LABELS: Record<
   Exclude<CardLanguage, "auto" | "other">,
   string
