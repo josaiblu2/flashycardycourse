@@ -32,6 +32,7 @@ yarn-error.log*
 
 # env files — never commit API keys or secrets
 .env*
+!.env.example
 .cursor/.env
 .cursor/.env.*
 
