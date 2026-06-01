@@ -51,15 +51,30 @@ export function DemoProActivationSection({
           setError(result.message);
           return;
         }
-        if (!isOnWaitlist) {
+
+        const shouldPromptWaitlist = !isOnWaitlist && !result.alreadyActive;
+        if (shouldPromptWaitlist) {
           setShowOptionalWaitlist(true);
           setWaitlistDialogOpen(true);
+          return;
         }
+
         router.refresh();
       } catch {
         setError("Failed to activate Demo Pro. Please try again.");
       }
     });
+  }
+
+  function handleWaitlistDialogOpenChange(open: boolean) {
+    setWaitlistDialogOpen(open);
+    if (!open && showOptionalWaitlist) {
+      router.refresh();
+    }
+  }
+
+  function handleWaitlistJoined() {
+    handleWaitlistDialogOpenChange(false);
   }
 
   if (hasDemoPro) {
@@ -140,7 +155,7 @@ export function DemoProActivationSection({
         </CardContent>
       </Card>
 
-      <Dialog open={waitlistDialogOpen} onOpenChange={setWaitlistDialogOpen}>
+      <Dialog open={waitlistDialogOpen} onOpenChange={handleWaitlistDialogOpenChange}>
         <DialogContent className="sm:max-w-lg max-h-[min(90vh,720px)] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Demo Pro activated!</DialogTitle>
@@ -153,14 +168,14 @@ export function DemoProActivationSection({
           {showOptionalWaitlist && !isOnWaitlist ? (
             <ProWaitlistForm
               limitType="demo_pro_activation"
-              onJoined={() => setWaitlistDialogOpen(false)}
+              onJoined={handleWaitlistJoined}
             />
           ) : null}
           <DialogFooter>
             <Button
               type="button"
               variant="ghost"
-              onClick={() => setWaitlistDialogOpen(false)}
+              onClick={() => handleWaitlistDialogOpenChange(false)}
             >
               Skip for now
             </Button>
