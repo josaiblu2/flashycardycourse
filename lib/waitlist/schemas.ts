@@ -12,6 +12,7 @@ export const WAITLIST_LIMIT_TYPES = [
   "global_monthly",
   "user_daily",
   "user_monthly",
+  "pricing_page",
 ] as const;
 
 export type WaitlistInterestCategory =
@@ -35,12 +36,14 @@ export const WAITLIST_LIMIT_TYPE_TO_SOURCE: Record<WaitlistLimitType, string> =
     global_monthly: "global_limit",
     user_daily: "user_daily_limit",
     user_monthly: "user_monthly_limit",
+    pricing_page: "pricing_page",
   };
 
 export const WAITLIST_SOURCES = [
   "global_limit",
   "user_daily_limit",
   "user_monthly_limit",
+  "pricing_page",
 ] as const;
 
 export type WaitlistSource = (typeof WAITLIST_SOURCES)[number];
@@ -49,6 +52,7 @@ export const WAITLIST_SOURCE_LABELS: Record<WaitlistSource, string> = {
   global_limit: "Global monthly limit",
   user_daily_limit: "Daily limit reached",
   user_monthly_limit: "Monthly limit reached",
+  pricing_page: "Pricing page",
 };
 
 export const WAITLIST_PRICE_EXPECTATIONS = [
