@@ -119,6 +119,20 @@ Open [http://localhost:3000](http://localhost:3000).
 | `AI_USER_DAILY_LIMIT` | No | Pro AI runs per user per day (default: 3) |
 | `AI_USER_MONTHLY_LIMIT` | No | Pro AI runs per user per month (default: 20) |
 | `AI_GLOBAL_MONTHLY_LIMIT` | No | Total AI runs per month (default: 100) |
+| `BILLING_ENABLED` | No | Set to `true` for real Clerk Billing checkout; `false` (default) enables free Demo Pro |
+
+## Demo Pro vs paid Pro
+
+When `BILLING_ENABLED=false` (public demo mode):
+
+- New users are **Free** by default (3 decks, no AI).
+- Users can **Activate Demo Pro** for free — unlimited decks and AI under demo usage limits.
+- Demo Pro is **not** a paid subscription; no Stripe or Clerk checkout is triggered.
+- The **Pro waitlist** is optional lead capture (on activation, after 7 days, or when AI limits are hit).
+
+When `BILLING_ENABLED=true`, the app uses Clerk Billing for real Pro upgrades via `/pricing`.
+
+See [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) for entitlement and waitlist details.
 
 ## Project structure
 
@@ -142,7 +156,7 @@ proxy.ts          Clerk session middleware (Next.js 16)
 
 ## Current status
 
-**MVP complete and demo-ready.** Core flows (auth, decks, cards, study, billing UI, AI generation, waitlist, admin) are implemented. Study progress is not persisted; billing uses Clerk Billing (no Stripe); AI runs under demo usage caps.
+**MVP complete and demo-ready.** Core flows (auth, decks, cards, study, billing UI, AI generation, waitlist, admin) are implemented. Study progress is not persisted; billing uses Clerk Billing when `BILLING_ENABLED=true`, otherwise free Demo Pro; AI runs under demo usage caps.
 
 | Document | Content |
 |----------|---------|

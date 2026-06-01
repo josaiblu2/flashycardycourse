@@ -37,3 +37,12 @@ export const waitlist = pgTable("waitlist", {
   source: varchar({ length: 100 }).notNull(),
   createdAt: timestamp().notNull().defaultNow(),
 });
+
+export const demoProActivations = pgTable("demo_pro_activations", {
+  id: integer().primaryKey().generatedAlwaysAsIdentity(),
+  clerkUserId: varchar({ length: 255 }).notNull().unique(),
+  demoProActivatedAt: timestamp().notNull().defaultNow(),
+  waitlistReminderDismissedAt: timestamp(),
+  createdAt: timestamp().notNull().defaultNow(),
+  updatedAt: timestamp().notNull().defaultNow(),
+});

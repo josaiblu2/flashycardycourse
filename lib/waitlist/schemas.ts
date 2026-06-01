@@ -13,6 +13,8 @@ export const WAITLIST_LIMIT_TYPES = [
   "user_daily",
   "user_monthly",
   "pricing_page",
+  "demo_pro_activation",
+  "demo_pro_reminder",
 ] as const;
 
 export type WaitlistInterestCategory =
@@ -37,6 +39,8 @@ export const WAITLIST_LIMIT_TYPE_TO_SOURCE: Record<WaitlistLimitType, string> =
     user_daily: "user_daily_limit",
     user_monthly: "user_monthly_limit",
     pricing_page: "pricing_page",
+    demo_pro_activation: "demo_pro_activation",
+    demo_pro_reminder: "demo_pro_reminder",
   };
 
 export const WAITLIST_SOURCES = [
@@ -44,6 +48,8 @@ export const WAITLIST_SOURCES = [
   "user_daily_limit",
   "user_monthly_limit",
   "pricing_page",
+  "demo_pro_activation",
+  "demo_pro_reminder",
 ] as const;
 
 export type WaitlistSource = (typeof WAITLIST_SOURCES)[number];
@@ -53,6 +59,8 @@ export const WAITLIST_SOURCE_LABELS: Record<WaitlistSource, string> = {
   user_daily_limit: "Daily limit reached",
   user_monthly_limit: "Monthly limit reached",
   pricing_page: "Pricing page",
+  demo_pro_activation: "Demo Pro activation",
+  demo_pro_reminder: "Demo Pro 7-day reminder",
 };
 
 export const WAITLIST_PRICE_EXPECTATIONS = [

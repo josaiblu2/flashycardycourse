@@ -18,12 +18,12 @@ export const AI_GENERATION_ERROR_MESSAGES: Record<
   INVALID_INPUT: "Invalid input. Please check your deck details and try again.",
   NOT_PRO: "AI generation requires a Pro subscription.",
   USER_DAILY_LIMIT_REACHED:
-    "You have reached your daily AI generation limit for the demo version. Please try again tomorrow. Join the Pro waitlist below for expanded access.",
+    "You have reached your daily AI generation limit for the demo version. Please try again tomorrow.",
   USER_MONTHLY_LIMIT_REACHED:
-    "You have reached your monthly AI generation limit for the demo version. Please try again next month. Join the Pro waitlist below for expanded access.",
+    "You have reached your monthly AI generation limit for the demo version. Please try again next month.",
   GLOBAL_MONTHLY_LIMIT_REACHED: `AI flashcard generation is temporarily unavailable.
 FlashyCardy is currently running as a public demo and the monthly AI credits have been exhausted.
-Please try again later. Join the Pro waitlist below to get notified when expanded AI access becomes available.`,
+Please try again later.`,
   CARD_PERSISTENCE_FAILED:
     "Flashcards were generated but some could not be saved. Please refresh the page and try again.",
 };

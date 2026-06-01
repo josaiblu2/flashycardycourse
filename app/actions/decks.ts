@@ -8,6 +8,7 @@ import {
   updateDeckRecord,
 } from "@/db/queries/decks";
 import { FREE_DECK_LIMIT, hasUnlimitedDecks } from "@/lib/billing/entitlements";
+import { resolveProAccess } from "@/lib/billing/pro-access";
 
 const CreateDeckSchema = z.object({
   name: z.string().min(1, "Name is required").max(100),
@@ -23,7 +24,10 @@ export async function createDeck(input: CreateDeckInput) {
   const { userId, has } = await auth();
   if (!userId) throw new Error("Unauthorized");
 
-  const deckLimit = hasUnlimitedDecks(has) ? null : FREE_DECK_LIMIT;
+  const proAccess = await resolveProAccess(userId, has);
+  const deckLimit = hasUnlimitedDecks(has, proAccess.isDemoPro || proAccess.isAdmin)
+    ? null
+    : FREE_DECK_LIMIT;
 
   const deck = await createDeckRecordWithDeckLimit(
     userId,

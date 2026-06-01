@@ -161,6 +161,7 @@ All writes go through Server Actions with this pattern:
 | `cards.ts` | Create, update, delete card |
 | `generate-cards.ts` | AI generation orchestration |
 | `waitlist.ts` | Join Pro waitlist |
+| `demo-pro.ts` | Activate Demo Pro, dismiss waitlist reminder |
 | `admin.ts` | Suspend, unsuspend, delete user |
 
 ### Data access layer
@@ -173,6 +174,7 @@ All Drizzle queries live in `db/queries/`:
 | `cards.ts` | Card CRUD scoped via deck ownership join |
 | `ai-generation-usage.ts` | Usage reservation with advisory locks |
 | `waitlist.ts` | Waitlist CRUD and aggregations |
+| `demo-pro.ts` | Demo Pro activation reads/writes |
 | `admin-decks.ts` | Admin-only bulk deck delete, deck counts |
 
 ---
@@ -212,22 +214,50 @@ Page / Action → auth() from @clerk/nextjs/server
 
 ## 8. Billing & entitlements architecture
 
-Configured in the **Clerk Dashboard** (Clerk Billing B2C):
+### `BILLING_ENABLED` flag
+
+| Value | Behavior |
+|-------|----------|
+| `false` (default) | Public demo: free **Demo Pro** activation, no Clerk checkout |
+| `true` | Real Clerk Billing on `/pricing` via `<PricingTable />` |
+
+Read via `isBillingEnabled()` in `lib/billing/config.ts`.
+
+### Paid Pro (Clerk Billing B2C)
+
+Configured in the **Clerk Dashboard**:
 
 | Plan slug | Features |
 |-----------|----------|
 | `free_user` | `3_deck_limit` — max 3 decks |
 | `pro` | `unlimited_decks`, `ai_flashcard_generation` |
 
-Server enforcement in `lib/billing/entitlements.ts`:
+Active when `BILLING_ENABLED=true`. Server checks use `has({ feature: ... })` from `auth()`.
 
-- `hasUnlimitedDecks(has)` → skip 3-deck cap
-- `hasAIFlashcardGeneration(has)` → allow AI (unless admin)
-- Deck creation uses **transactional insert** with `pg_advisory_xact_lock` when limit applies
+### Demo Pro (billing disabled)
 
-Client visibility via Clerk `<Show when={{ feature: ... }}>` and `<Show when={{ plan: "pro" }}>`.
+When `BILLING_ENABLED=false`, users activate **Demo Pro** via `activateDemoPro` Server Action. State is stored in `demo_pro_activations` (`clerkUserId`, `demoProActivatedAt`, optional `waitlistReminderDismissedAt`).
 
-**No Stripe integration** in the codebase — billing is Clerk-native.
+Demo Pro unlocks the same product capabilities as paid Pro (unlimited decks, AI generation) but:
+
+- Is **free** — no payment or checkout
+- Remains subject to **demo AI usage limits**
+- Is clearly labeled **"Pro Demo"** in the UI (not a subscription)
+
+Central entitlement resolver: `resolveProAccess()` in `lib/billing/pro-access.ts`:
+
+```
+Pro access if:
+  admin (bypasses limits in AI action), OR
+  BILLING_ENABLED=true AND Clerk Pro features, OR
+  BILLING_ENABLED=false AND demo_pro_activations row exists
+```
+
+Helper functions in `lib/billing/entitlements.ts` accept a `demoPro` boolean from `resolveProAccess()`.
+
+Deck creation uses **transactional insert** with `pg_advisory_xact_lock` when the free cap applies.
+
+**No Stripe integration** — billing is Clerk-native when enabled.
 
 ---
 
@@ -280,12 +310,26 @@ Reservation uses PostgreSQL advisory locks + conditional `INSERT` in a transacti
 
 ## 10. Waitlist architecture
 
-Triggered when a Pro user hits an AI usage limit. The UI shows `ProWaitlistForm` with:
+The waitlist is **optional lead capture** — it does not gate Demo Pro activation.
 
-- Name, verified email (from Clerk), optional interest category, required price expectation, privacy acknowledgment
-- Source tag derived from limit type: `global_limit`, `user_daily_limit`, `user_monthly_limit`
+### When the waitlist is offered
 
-Stored in `waitlist` table. Admin dashboard at `/admin/waitlist` (allowlisted IDs only) shows totals, breakdowns, and recent leads.
+| Trigger | UI |
+|---------|-----|
+| Optional after Demo Pro activation | Dialog on `/pricing` — skippable |
+| 7 days after Demo Pro activation | Dismissible alert on `/dashboard` (if not on waitlist) |
+| Personal AI limit reached | Optional CTA below limit message in AI dialog |
+| Global monthly AI limit reached | Prominent waitlist form in AI dialog |
+
+Duplicate signups are prevented server-side (`joinProWaitlist` checks user ID and email). Message: *"You're already on the FlashyCardy Pro waitlist."*
+
+### Form fields
+
+`ProWaitlistForm` collects name, verified email (from Clerk), optional interest category, required price expectation, privacy acknowledgment.
+
+Source tags: `global_limit`, `user_daily_limit`, `user_monthly_limit`, `pricing_page`, `demo_pro_activation`, `demo_pro_reminder`.
+
+Stored in `waitlist` table. Admin dashboard at `/admin/waitlist` (allowlisted IDs only).
 
 ---
 
@@ -350,6 +394,14 @@ waitlist
 ├── priceExpectation varchar(50)
 ├── source          varchar(100) NOT NULL
 └── createdAt       timestamp
+
+demo_pro_activations
+├── id                          integer PK (identity)
+├── clerkUserId                 varchar(255) NOT NULL UNIQUE
+├── demoProActivatedAt          timestamp NOT NULL
+├── waitlistReminderDismissedAt timestamp (nullable)
+├── createdAt                   timestamp
+└── updatedAt                   timestamp
 ```
 
 Schema sync: `npm run db:push` (Drizzle Kit). No committed migration folder at time of review.

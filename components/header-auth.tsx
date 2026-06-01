@@ -6,7 +6,12 @@ import { AccountLevelBadge } from "@/components/account-level-badge";
 import { AuthButtons } from "@/components/auth-buttons";
 import { Button } from "@/components/ui/button";
 
-export function HeaderAuth() {
+interface HeaderAuthProps {
+  isClerkPro: boolean;
+  isDemoPro: boolean;
+}
+
+export function HeaderAuth({ isClerkPro, isDemoPro }: HeaderAuthProps) {
   return (
     <>
       <Show when="signed-out">
@@ -17,7 +22,7 @@ export function HeaderAuth() {
       </Show>
       <Show when="signed-in">
         <div className="flex items-center gap-3">
-          <AccountLevelBadge />
+          <AccountLevelBadge isClerkPro={isClerkPro} isDemoPro={isDemoPro} />
           <UserButton />
         </div>
       </Show>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { joinProWaitlist } from "@/app/actions/waitlist";
 import { WaitlistJoinedMessage } from "@/components/waitlist-joined-message";
@@ -31,13 +32,20 @@ interface ProWaitlistFormProps {
   limitType: WaitlistLimitType;
   className?: string;
   onJoined?: () => void;
+  /** Optional intro copy above the form fields. */
+  description?: string;
+  /** When true, render as a prominent card-style block (e.g. global limit). */
+  prominent?: boolean;
 }
 
 export function ProWaitlistForm({
   limitType,
   className,
   onJoined,
+  description = "Get notified when the full Pro version becomes available.",
+  prominent = false,
 }: ProWaitlistFormProps) {
+  const router = useRouter();
   const { user } = useUser();
   const [name, setName] = useState("");
   const [interestCategory, setInterestCategory] = useState<
@@ -97,6 +105,7 @@ export function ProWaitlistForm({
         if (result.success) {
           setSubmitted(true);
           onJoined?.();
+          router.refresh();
           return;
         }
 
@@ -111,13 +120,9 @@ export function ProWaitlistForm({
     return <WaitlistJoinedMessage className={className} />;
   }
 
-  return (
-    <Alert className={className}>
-      <AlertTitle>Join the Pro waitlist</AlertTitle>
-      <AlertDescription>
-        <p className="mb-4">
-          Get notified when expanded AI access becomes available.
-        </p>
+  const formContent = (
+    <>
+      <p className="mb-4">{description}</p>
         <div className="space-y-3">
           <div className="space-y-1.5">
             <Label htmlFor="waitlist-name">Name</Label>
@@ -232,7 +237,24 @@ export function ProWaitlistForm({
             {isPending ? "Joining…" : "Join waitlist"}
           </Button>
         </div>
-      </AlertDescription>
+    </>
+  );
+
+  if (prominent) {
+    return (
+      <div className={className}>
+        <Alert>
+          <AlertTitle>Join the FlashyCardy Pro waitlist</AlertTitle>
+          <AlertDescription>{formContent}</AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  return (
+    <Alert className={className}>
+      <AlertTitle>Join the Pro waitlist</AlertTitle>
+      <AlertDescription>{formContent}</AlertDescription>
     </Alert>
   );
 }

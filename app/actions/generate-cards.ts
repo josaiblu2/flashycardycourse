@@ -23,6 +23,9 @@ import {
 import { generateFlashcards } from "@/lib/ai/generate-flashcards";
 import { reserveAiGenerationWithinLimits } from "@/lib/ai/usage-limits";
 import { isAdminUser } from "@/lib/admin/require-admin";
+import { isBillingEnabled } from "@/lib/billing/config";
+import { resolveProAccess } from "@/lib/billing/pro-access";
+import { hasAIFlashcardGeneration } from "@/lib/billing/entitlements";
 
 const CARD_COUNT = 20;
 
@@ -109,8 +112,12 @@ export async function generateCardsWithAI(
   const isAdmin = await isAdminUser(userId);
 
   if (!isAdmin) {
-    if (!has({ feature: "ai_flashcard_generation" })) {
-      return aiGenerationFailure("NOT_PRO");
+    const proAccess = await resolveProAccess(userId, has);
+    if (!hasAIFlashcardGeneration(has, proAccess.isDemoPro)) {
+      const message = isBillingEnabled()
+        ? undefined
+        : "Activate Demo Pro to generate flashcards with AI.";
+      return aiGenerationFailure("NOT_PRO", message);
     }
 
     const limitFailure = await reserveAiGenerationWithinLimits(

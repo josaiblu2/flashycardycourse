@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import {
   claimWaitlistLeadForUser,
@@ -71,7 +72,7 @@ export async function joinProWaitlist(
     return {
       success: false,
       code: "DUPLICATE",
-      message: "You're already on the waitlist.",
+      message: "You're already on the FlashyCardy Pro waitlist.",
     };
   }
 
@@ -83,13 +84,16 @@ export async function joinProWaitlist(
         interestCategory,
         priceExpectation,
       });
+      revalidatePath("/pricing");
+      revalidatePath("/dashboard");
+      revalidatePath("/", "layout");
       return { success: true };
     }
 
     return {
       success: false,
       code: "DUPLICATE",
-      message: "You're already on the waitlist.",
+      message: "You're already on the FlashyCardy Pro waitlist.",
     };
   }
 
@@ -109,6 +113,10 @@ export async function joinProWaitlist(
       message: "Failed to join the waitlist. Please try again.",
     };
   }
+
+  revalidatePath("/pricing");
+  revalidatePath("/dashboard");
+  revalidatePath("/", "layout");
 
   return { success: true };
 }

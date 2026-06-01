@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import { auth } from "@clerk/nextjs/server";
 import { DemoPricingBanner } from "@/components/demo-pricing-banner";
-import { DemoPricingWaitlist } from "@/components/demo-pricing-waitlist";
+import { DemoProActivationSection } from "@/components/demo-pro-activation-section";
 import { PricingPlansOverview } from "@/components/pricing-plans-overview";
 import { PricingTableSection } from "@/components/pricing-table-section";
 import { isBillingEnabled } from "@/lib/billing/config";
+import { resolveProAccess } from "@/lib/billing/pro-access";
 import { isUserOnWaitlist } from "@/lib/waitlist/status";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +17,16 @@ export const metadata: Metadata = {
 
 export default async function PricingPage() {
   const billingEnabled = isBillingEnabled();
-  const { userId } = await auth();
+  const { userId, has } = await auth();
+  const proAccess = userId
+    ? await resolveProAccess(userId, has)
+    : {
+        hasPro: false,
+        isClerkPro: false,
+        isDemoPro: false,
+        isAdmin: false,
+        source: "free" as const,
+      };
   const isOnWaitlist = userId ? await isUserOnWaitlist(userId) : false;
 
   return (
@@ -28,7 +38,7 @@ export default async function PricingPage() {
         <p className="text-muted-foreground mt-1">
           {billingEnabled
             ? "Upgrade to Pro for unlimited decks, and AI generation."
-            : "Compare plans and join the Pro waitlist — no charges during the public demo."}
+            : "Compare plans and activate free Demo Pro — no charges during the public demo."}
         </p>
       </div>
 
@@ -41,8 +51,9 @@ export default async function PricingPage() {
         <div className="space-y-10">
           <DemoPricingBanner />
           <PricingPlansOverview />
-          <DemoPricingWaitlist
+          <DemoProActivationSection
             isSignedIn={!!userId}
+            hasDemoPro={proAccess.isDemoPro || proAccess.isAdmin}
             isOnWaitlist={isOnWaitlist}
           />
         </div>

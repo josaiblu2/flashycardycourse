@@ -1,15 +1,21 @@
-"use client";
-
-import { Show } from "@clerk/nextjs";
 import { Badge } from "@/components/ui/badge";
 
-export function AccountLevelBadge() {
-  return (
-    <Show
-      when={{ plan: "pro" }}
-      fallback={<Badge variant="secondary">Free</Badge>}
-    >
-      <Badge variant="default">Pro</Badge>
-    </Show>
-  );
+interface AccountLevelBadgeProps {
+  isClerkPro?: boolean;
+  isDemoPro?: boolean;
+}
+
+export function AccountLevelBadge({
+  isClerkPro = false,
+  isDemoPro = false,
+}: AccountLevelBadgeProps) {
+  if (isClerkPro) {
+    return <Badge variant="default">Pro</Badge>;
+  }
+
+  if (isDemoPro) {
+    return <Badge variant="default">Pro Demo</Badge>;
+  }
+
+  return <Badge variant="secondary">Free</Badge>;
 }

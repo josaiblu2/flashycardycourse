@@ -3,15 +3,20 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
 import { getDecksByUser } from "@/db/queries/decks";
+import { getDemoProActivationByUser } from "@/db/queries/demo-pro";
 import {
   FREE_DECK_LIMIT,
   hasUnlimitedDecks,
   isAtDeckLimit,
 } from "@/lib/billing/entitlements";
+import { shouldShowDemoProWaitlistReminder } from "@/lib/billing/demo-pro-reminder";
+import { isBillingEnabled } from "@/lib/billing/config";
+import { resolveProAccess } from "@/lib/billing/pro-access";
+import { isUserOnWaitlist } from "@/lib/waitlist/status";
 import { CreateDeckAction } from "@/components/create-deck-action";
-import { UpgradeToProButton } from "@/components/upgrade-to-pro-button";
+import { DemoProWaitlistReminder } from "@/components/demo-pro-waitlist-reminder";
+import { ProUpgradeAction } from "@/components/pro-upgrade-action";
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardDescription,
@@ -24,9 +29,32 @@ export default async function DashboardPage() {
   const { userId, has } = await auth();
   if (!userId) redirect("/");
 
+  const billingEnabled = isBillingEnabled();
+  const proAccess = await resolveProAccess(userId, has);
   const userDecks = await getDecksByUser(userId);
-  const canCreateUnlimited = hasUnlimitedDecks(has);
-  const atDeckLimit = isAtDeckLimit(has, userDecks.length);
+  const canCreateUnlimited = hasUnlimitedDecks(has, proAccess.isDemoPro || proAccess.isAdmin);
+  const atDeckLimit = isAtDeckLimit(
+    has,
+    userDecks.length,
+    proAccess.isDemoPro || proAccess.isAdmin
+  );
+
+  const isOnWaitlist = await isUserOnWaitlist(userId);
+  const demoActivation =
+    !billingEnabled && proAccess.isDemoPro
+      ? await getDemoProActivationByUser(userId)
+      : null;
+  const showWaitlistReminder =
+    demoActivation !== null &&
+    shouldShowDemoProWaitlistReminder(
+      demoActivation.demoProActivatedAt,
+      demoActivation.waitlistReminderDismissedAt,
+      isOnWaitlist
+    );
+
+  const upgradeMessage = billingEnabled
+    ? "Upgrade to Pro to create unlimited decks, and generate flashcards with AI."
+    : "Activate free Demo Pro to create unlimited decks and generate flashcards with AI.";
 
   return (
     <main className="flex flex-1 flex-col px-6 py-10 max-w-5xl mx-auto w-full">
@@ -45,19 +73,29 @@ export default async function DashboardPage() {
             )}
           </p>
         </div>
-        <CreateDeckAction atDeckLimit={atDeckLimit} />
+        <CreateDeckAction
+          atDeckLimit={atDeckLimit}
+          hasUnlimitedDecks={canCreateUnlimited}
+          billingEnabled={billingEnabled}
+          hasDemoPro={proAccess.isDemoPro}
+          isClerkPro={proAccess.isClerkPro}
+        />
       </div>
+
+      {showWaitlistReminder && <DemoProWaitlistReminder />}
 
       {atDeckLimit && (
         <Alert className="mb-6">
           <Sparkles />
           <AlertTitle>Deck limit reached</AlertTitle>
-          <AlertDescription>
-            You&apos;ve used all {FREE_DECK_LIMIT} free decks. Upgrade to Pro to
-            create unlimited decks, and generate flashcards with AI.
-          </AlertDescription>
+          <AlertDescription>{upgradeMessage}</AlertDescription>
           <AlertAction>
-            <UpgradeToProButton size="sm" />
+            <ProUpgradeAction
+              billingEnabled={billingEnabled}
+              hasDemoPro={proAccess.isDemoPro}
+              isClerkPro={proAccess.isClerkPro}
+              size="sm"
+            />
           </AlertAction>
         </Alert>
       )}
@@ -68,7 +106,14 @@ export default async function DashboardPage() {
           <p className="text-muted-foreground mt-1 mb-6">
             Create your first deck to start studying
           </p>
-          <CreateDeckAction atDeckLimit={atDeckLimit} triggerLabel="Create Deck" />
+          <CreateDeckAction
+            atDeckLimit={atDeckLimit}
+            hasUnlimitedDecks={canCreateUnlimited}
+            billingEnabled={billingEnabled}
+            hasDemoPro={proAccess.isDemoPro}
+            isClerkPro={proAccess.isClerkPro}
+            triggerLabel="Create Deck"
+          />
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

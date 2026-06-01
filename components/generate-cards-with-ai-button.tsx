@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { Info, Sparkles } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -33,8 +32,7 @@ import { updateDeck } from "@/app/actions/decks";
 import { generateCardsWithAI } from "@/app/actions/generate-cards";
 import type { AiGenerationErrorCode } from "@/lib/ai/generation-errors";
 import { ProWaitlistForm } from "@/components/pro-waitlist-form";
-import { WaitlistJoinedMessage } from "@/components/waitlist-joined-message";
-import { UpgradeToProButton } from "@/components/upgrade-to-pro-button";
+import { ProUpgradeAction } from "@/components/pro-upgrade-action";
 import type { WaitlistLimitType } from "@/lib/waitlist/schemas";
 import {
   CARD_LANGUAGE_OPTIONS,
@@ -49,7 +47,8 @@ import {
 } from "@/lib/ai/generation-context";
 import { getGenerateCardsWithAIDisabledState } from "@/lib/generate-cards-button-state";
 
-const WAITLIST_JOINED_STORAGE_KEY = "flashycardy_waitlist_joined";
+const PERSONAL_LIMIT_WAITLIST_COPY =
+  "Interested in expanded Pro access? Join the waitlist and we'll notify you when the full Pro version becomes available.";
 
 interface GenerateCardsWithAIButtonProps {
   deckId: number;
@@ -58,6 +57,9 @@ interface GenerateCardsWithAIButtonProps {
   existingCardCount: number;
   canUseAI: boolean;
   isOnWaitlist?: boolean;
+  billingEnabled: boolean;
+  hasDemoPro?: boolean;
+  isClerkPro?: boolean;
 }
 
 const LIMIT_ERROR_CODES = new Set<AiGenerationErrorCode>([
@@ -172,23 +174,8 @@ function GenerateCardsWithAIProButton({
   );
   const [isPending, startTransition] = useTransition();
 
-  useEffect(() => {
-    try {
-      if (localStorage.getItem(WAITLIST_JOINED_STORAGE_KEY) === "1") {
-        setWaitlistJoined(true);
-      }
-    } catch {
-      // localStorage unavailable
-    }
-  }, []);
-
   function handleWaitlistJoined() {
     setWaitlistJoined(true);
-    try {
-      localStorage.setItem(WAITLIST_JOINED_STORAGE_KEY, "1");
-    } catch {
-      // localStorage unavailable
-    }
   }
 
   const { disabled, reason, tooltipMessage } = getGenerateCardsWithAIDisabledState({
@@ -313,17 +300,28 @@ function GenerateCardsWithAIProButton({
     getExistingCardsGenerationNotice(existingCardCount);
   const waitlistLimitType =
     errorCode !== null ? getWaitlistLimitType(errorCode) : null;
-  const showWaitlist = isLimitErrorCode(errorCode) && waitlistLimitType !== null;
+  const showWaitlist =
+    isLimitErrorCode(errorCode) &&
+    waitlistLimitType !== null &&
+    !waitlistJoined;
+  const isGlobalLimit = errorCode === "GLOBAL_MONTHLY_LIMIT_REACHED";
+  const isPersonalLimit =
+    errorCode === "USER_DAILY_LIMIT_REACHED" ||
+    errorCode === "USER_MONTHLY_LIMIT_REACHED";
 
   function renderWaitlistBlock() {
     if (!showWaitlist || !waitlistLimitType) return null;
-    if (waitlistJoined) {
-      return <WaitlistJoinedMessage />;
-    }
+
     return (
       <ProWaitlistForm
         limitType={waitlistLimitType}
         onJoined={handleWaitlistJoined}
+        prominent={isGlobalLimit}
+        description={
+          isPersonalLimit
+            ? PERSONAL_LIMIT_WAITLIST_COPY
+            : "Join the waitlist and we'll notify you when the full Pro version becomes available."
+        }
       />
     );
   }
@@ -379,11 +377,15 @@ function GenerateCardsWithAIProButton({
           <DialogHeader>
             {showWaitlist ? (
               <>
-                <DialogTitle>Join the Pro waitlist</DialogTitle>
+                <DialogTitle>
+                  {isGlobalLimit
+                    ? "Demo AI quota exhausted"
+                    : "AI generation limit reached"}
+                </DialogTitle>
                 <DialogDescription>
-                  AI generation is unavailable right now. Share your interest
-                  and pricing expectations so we can prioritize expanded
-                  access.
+                  {isGlobalLimit
+                    ? "The public demo has reached its monthly AI limit. Join the waitlist to be notified when expanded access becomes available."
+                    : "You've reached your personal demo AI limit for now."}
                 </DialogDescription>
               </>
             ) : (
@@ -570,8 +572,21 @@ function GenerateCardsWithAIProButton({
   );
 }
 
-function GenerateCardsWithAIFreeButton() {
-  return <UpgradeToProButton />;
+function GenerateCardsWithAIFreeButton({
+  billingEnabled,
+  hasDemoPro = false,
+  isClerkPro = false,
+}: Pick<
+  GenerateCardsWithAIButtonProps,
+  "billingEnabled" | "hasDemoPro" | "isClerkPro"
+>) {
+  return (
+    <ProUpgradeAction
+      billingEnabled={billingEnabled}
+      hasDemoPro={hasDemoPro}
+      isClerkPro={isClerkPro}
+    />
+  );
 }
 
 export function GenerateCardsWithAIButton({
@@ -581,9 +596,18 @@ export function GenerateCardsWithAIButton({
   existingCardCount,
   canUseAI,
   isOnWaitlist = false,
+  billingEnabled,
+  hasDemoPro = false,
+  isClerkPro = false,
 }: GenerateCardsWithAIButtonProps) {
   if (!canUseAI) {
-    return <GenerateCardsWithAIFreeButton />;
+    return (
+      <GenerateCardsWithAIFreeButton
+        billingEnabled={billingEnabled}
+        hasDemoPro={hasDemoPro}
+        isClerkPro={isClerkPro}
+      />
+    );
   }
 
   return (
@@ -593,6 +617,9 @@ export function GenerateCardsWithAIButton({
       deckDescription={deckDescription}
       existingCardCount={existingCardCount}
       isOnWaitlist={isOnWaitlist}
+      billingEnabled={billingEnabled}
+      hasDemoPro={hasDemoPro}
+      isClerkPro={isClerkPro}
     />
   );
 }

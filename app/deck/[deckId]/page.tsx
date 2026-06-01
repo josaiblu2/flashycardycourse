@@ -4,6 +4,9 @@ import Link from "next/link";
 import { getDeckByIdAndUser } from "@/db/queries/decks";
 import { getCardsByDeckAndUser } from "@/db/queries/cards";
 import { isAdminUser } from "@/lib/admin/require-admin";
+import { isBillingEnabled } from "@/lib/billing/config";
+import { resolveProAccess } from "@/lib/billing/pro-access";
+import { hasAIFlashcardGeneration } from "@/lib/billing/entitlements";
 import { isUserOnWaitlist } from "@/lib/waitlist/status";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -29,9 +32,12 @@ export default async function DeckPage({
   const { userId, has } = await auth();
   if (!userId) redirect("/");
 
+  const billingEnabled = isBillingEnabled();
+  const proAccess = await resolveProAccess(userId, has);
   const isAdmin = await isAdminUser(userId);
   const canUseAI =
-    isAdmin || has({ feature: "ai_flashcard_generation" });
+    isAdmin ||
+    hasAIFlashcardGeneration(has, proAccess.isDemoPro);
 
   const { deckId } = await params;
   const id = parseInt(deckId, 10);
@@ -81,6 +87,9 @@ export default async function DeckPage({
               existingCardCount={cardRows.length}
               canUseAI={canUseAI}
               isOnWaitlist={isOnWaitlist}
+              billingEnabled={billingEnabled}
+              hasDemoPro={proAccess.isDemoPro}
+              isClerkPro={proAccess.isClerkPro}
             />
             <EditDeckDialog
               deckId={deck.id}
