@@ -13,8 +13,13 @@ async function fetchDemoProActivationByUser(clerkUserId: string) {
   return row ?? null;
 }
 
-/** Cached per request — pro-access and dashboard share one DB read. */
-export const getDemoProActivationByUser = cache(fetchDemoProActivationByUser);
+/** Always hits the DB — use after writes or in mutation paths. */
+export async function getDemoProActivationByUser(clerkUserId: string) {
+  return fetchDemoProActivationByUser(clerkUserId);
+}
+
+/** Cached per request — read-only dedupe (e.g. resolveProAccess in layout + page). */
+export const getCachedDemoProActivationByUser = cache(fetchDemoProActivationByUser);
 
 export async function activateDemoProRecord(clerkUserId: string) {
   const existing = await getDemoProActivationByUser(clerkUserId);

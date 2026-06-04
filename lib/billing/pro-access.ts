@@ -4,7 +4,7 @@ import { isAdminUser } from "@/lib/admin/require-admin";
 import { isBillingEnabled } from "@/lib/billing/config";
 import {
   activateDemoProRecord,
-  getDemoProActivationByUser,
+  getCachedDemoProActivationByUser,
 } from "@/db/queries/demo-pro";
 import type { HasFeature } from "@/lib/billing/entitlements";
 import { isUserOnWaitlist } from "@/lib/waitlist/status";
@@ -51,7 +51,9 @@ export async function resolveProAccess(
   }
 
   const demoActivation =
-    !isBillingEnabled() ? await getDemoProActivationByUser(userId) : null;
+    !isBillingEnabled()
+      ? await getCachedDemoProActivationByUser(userId)
+      : null;
   let isDemoPro = demoActivation !== null;
 
   // Legacy backfill: waitlist previously unlocked Demo Pro before separate activation existed.
