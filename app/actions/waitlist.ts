@@ -84,8 +84,6 @@ export async function joinProWaitlist(
         interestCategory,
         priceExpectation,
       });
-      revalidatePath("/pricing");
-      revalidatePath("/dashboard");
       revalidatePath("/", "layout");
       return { success: true };
     }
@@ -114,8 +112,6 @@ export async function joinProWaitlist(
     };
   }
 
-  revalidatePath("/pricing");
-  revalidatePath("/dashboard");
   revalidatePath("/", "layout");
 
   return { success: true };

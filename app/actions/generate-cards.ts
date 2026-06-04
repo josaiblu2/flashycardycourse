@@ -22,9 +22,8 @@ import {
 } from "@/lib/ai/generation-context";
 import { generateFlashcards } from "@/lib/ai/generate-flashcards";
 import { reserveAiGenerationWithinLimits } from "@/lib/ai/usage-limits";
-import { isAdminUser } from "@/lib/admin/require-admin";
+import { getCachedProAccess } from "@/lib/auth/cached-auth";
 import { isBillingEnabled } from "@/lib/billing/config";
-import { resolveProAccess } from "@/lib/billing/pro-access";
 import { hasAIFlashcardGeneration } from "@/lib/billing/entitlements";
 
 const CARD_COUNT = 20;
@@ -109,10 +108,9 @@ export async function generateCardsWithAI(
     );
   }
 
-  const isAdmin = await isAdminUser(userId);
+  const proAccess = await getCachedProAccess();
 
-  if (!isAdmin) {
-    const proAccess = await resolveProAccess(userId, has);
+  if (!proAccess.isAdmin) {
     if (!hasAIFlashcardGeneration(has, proAccess.isDemoPro)) {
       const message = isBillingEnabled()
         ? undefined

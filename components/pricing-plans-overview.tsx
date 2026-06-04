@@ -1,4 +1,5 @@
 import { Sparkles } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -10,33 +11,35 @@ import {
 import { FREE_DECK_LIMIT } from "@/lib/billing/entitlements";
 import { cn } from "@/lib/utils";
 
-const freeFeatures = [
-  `Up to ${FREE_DECK_LIMIT} decks`,
-  "Create and edit flashcards manually",
-  "Interactive study mode with shuffle",
-];
+export async function PricingPlansOverview({ className }: { className?: string }) {
+  const t = await getTranslations("pricing");
+  const tc = await getTranslations("common");
 
-const proFeatures = [
-  "Unlimited decks",
-  "AI flashcard generation from any topic",
-  "Everything in Free",
-];
+  const freeFeatures = [
+    t("freeFeatureDecks", { deckLimit: FREE_DECK_LIMIT }),
+    t("freeFeatureManual"),
+    t("freeFeatureStudy"),
+  ];
 
-export function PricingPlansOverview({ className }: { className?: string }) {
+  const proFeatures = [
+    t("proFeatureUnlimited"),
+    t("proFeatureAi"),
+    t("proFeatureAllFree"),
+  ];
+
   return (
     <section
-      aria-label="Plan comparison"
+      aria-label={t("planComparisonAria")}
       className={cn("grid gap-6 sm:grid-cols-2", className)}
     >
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
-            <CardTitle>Free</CardTitle>
-            <Badge variant="secondary">Current default</Badge>
+            <CardTitle>{t("freeTitle")}</CardTitle>
+            <Badge variant="secondary">{t("freeBadge")}</Badge>
           </div>
           <CardDescription>
-            Start learning with manual flashcards and up to {FREE_DECK_LIMIT}{" "}
-            decks.
+            {t("freeDescription", { deckLimit: FREE_DECK_LIMIT })}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -54,15 +57,13 @@ export function PricingPlansOverview({ className }: { className?: string }) {
       <Card className="border-primary/30 bg-primary/5">
         <CardHeader>
           <div className="flex items-center gap-2">
-            <CardTitle>Pro</CardTitle>
+            <CardTitle>{t("proTitle")}</CardTitle>
             <Badge data-icon="inline-start">
               <Sparkles />
-              Recommended
+              {tc("recommended")}
             </Badge>
           </div>
-          <CardDescription>
-            Remove deck limits and generate full flashcard sets with AI.
-          </CardDescription>
+          <CardDescription>{t("proDescription")}</CardDescription>
         </CardHeader>
         <CardContent>
           <ul className="space-y-2 text-sm text-muted-foreground">

@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { activateDemoPro } from "@/app/actions/demo-pro";
 import { ProWaitlistForm } from "@/components/pro-waitlist-form";
 import { WaitlistJoinedMessage } from "@/components/waitlist-joined-message";
@@ -36,6 +37,8 @@ export function DemoProActivationSection({
   hasDemoPro,
   isOnWaitlist,
 }: DemoProActivationSectionProps) {
+  const t = useTranslations("pricing");
+  const tc = useTranslations("common");
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [waitlistDialogOpen, setWaitlistDialogOpen] = useState(false);
@@ -61,7 +64,7 @@ export function DemoProActivationSection({
 
         router.refresh();
       } catch {
-        setError("Failed to activate Demo Pro. Please try again.");
+        setError(t("activateFailed"));
       }
     });
   }
@@ -82,25 +85,19 @@ export function DemoProActivationSection({
       <div className="space-y-6">
         <Alert>
           <Sparkles />
-          <AlertTitle>Demo Pro is active on your account</AlertTitle>
+          <AlertTitle>{t("demoProActiveTitle")}</AlertTitle>
           <AlertDescription className="space-y-4">
-            <p>
-              You have free Demo Pro access — unlimited decks and AI flashcard
-              generation under demo usage limits. This is not a paid subscription.
-            </p>
+            <p>{t("demoProActiveDescription")}</p>
             <Button nativeButton={false} render={<Link href="/dashboard" />}>
-              Go to dashboard
+              {tc("goToDashboard")}
             </Button>
           </AlertDescription>
         </Alert>
         {!isOnWaitlist && (
           <Card>
             <CardHeader>
-              <CardTitle>Interested in full Pro when it launches?</CardTitle>
-              <CardDescription>
-                Join the waitlist for free — we&apos;ll notify you when paid Pro
-                becomes available. Optional and separate from your Demo Pro access.
-              </CardDescription>
+              <CardTitle>{t("waitlistInterestTitle")}</CardTitle>
+              <CardDescription>{t("waitlistInterestDescription")}</CardDescription>
             </CardHeader>
             <CardContent>
               <ProWaitlistForm limitType="demo_pro_activation" />
@@ -116,15 +113,12 @@ export function DemoProActivationSection({
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Activate Demo Pro — free</CardTitle>
-          <CardDescription>
-            Sign in to unlock unlimited decks and AI generation on your account.
-            No payment required during the public demo.
-          </CardDescription>
+          <CardTitle>{t("activateTitle")}</CardTitle>
+          <CardDescription>{t("activateSignInDescription")}</CardDescription>
         </CardHeader>
         <CardContent>
           <Button nativeButton={false} render={<Link href="/" />}>
-            Sign in to activate
+            {t("signInToActivate")}
           </Button>
         </CardContent>
       </Card>
@@ -135,12 +129,8 @@ export function DemoProActivationSection({
     <>
       <Card>
         <CardHeader>
-          <CardTitle>Activate Demo Pro — free</CardTitle>
-          <CardDescription>
-            Unlock unlimited decks and AI flashcard generation instantly. Demo Pro
-            is free access for testing — not a paid subscription. AI usage remains
-            subject to demo limits.
-          </CardDescription>
+          <CardTitle>{t("activateTitle")}</CardTitle>
+          <CardDescription>{t("activateDescription")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Button
@@ -149,7 +139,7 @@ export function DemoProActivationSection({
             data-icon="inline-start"
           >
             <Sparkles />
-            {isPending ? "Activating…" : "Activate Demo Pro"}
+            {isPending ? t("activating") : t("activateButton")}
           </Button>
           {error && <p className="text-sm text-destructive">{error}</p>}
         </CardContent>
@@ -158,12 +148,8 @@ export function DemoProActivationSection({
       <Dialog open={waitlistDialogOpen} onOpenChange={handleWaitlistDialogOpenChange}>
         <DialogContent className="sm:max-w-lg max-h-[min(90vh,720px)] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Demo Pro activated!</DialogTitle>
-            <DialogDescription>
-              Your account now has free Demo Pro access. Would you like to join
-              the Pro waitlist? It&apos;s optional — you can skip and start using
-              Pro features right away.
-            </DialogDescription>
+            <DialogTitle>{t("activatedTitle")}</DialogTitle>
+            <DialogDescription>{t("activatedDescription")}</DialogDescription>
           </DialogHeader>
           {showOptionalWaitlist && !isOnWaitlist ? (
             <ProWaitlistForm
@@ -177,14 +163,14 @@ export function DemoProActivationSection({
               variant="ghost"
               onClick={() => handleWaitlistDialogOpenChange(false)}
             >
-              Skip for now
+              {t("skipForNow")}
             </Button>
             <Button
               type="button"
               nativeButton={false}
               render={<Link href="/dashboard" />}
             >
-              Go to dashboard
+              {tc("goToDashboard")}
             </Button>
           </DialogFooter>
         </DialogContent>

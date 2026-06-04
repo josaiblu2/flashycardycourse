@@ -1,3 +1,6 @@
+"use client";
+
+import { useTranslations } from "next-intl";
 import { Badge } from "@/components/ui/badge";
 
 interface AccountLevelBadgeProps {
@@ -9,13 +12,15 @@ export function AccountLevelBadge({
   isClerkPro = false,
   isDemoPro = false,
 }: AccountLevelBadgeProps) {
+  const t = useTranslations("common");
+
   if (isClerkPro) {
-    return <Badge variant="default">Pro</Badge>;
+    return <Badge variant="default">{t("pro")}</Badge>;
   }
 
   if (isDemoPro) {
-    return <Badge variant="default">Pro Demo</Badge>;
+    return <Badge variant="default">{t("proDemo")}</Badge>;
   }
 
-  return <Badge variant="secondary">Free</Badge>;
+  return <Badge variant="secondary">{t("free")}</Badge>;
 }

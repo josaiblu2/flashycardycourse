@@ -47,7 +47,7 @@ export function DeleteDeckDialog({
     cardCount === 1 ? "1 card" : `${cardCount} cards`;
 
   return (
-    <div className="flex flex-col items-end gap-1">
+    <div className="flex w-full flex-col items-stretch gap-1 md:w-auto md:items-end">
       <AlertDialog>
         <AlertDialogTrigger
           render={

@@ -334,7 +334,14 @@ function GenerateCardsWithAIProButton({
       data-icon="inline-start"
     >
       <Sparkles />
-      {isPending ? "Generating…" : "Generate cards with AI"}
+      {isPending ? (
+        "Generating…"
+      ) : (
+        <>
+          <span className="sm:hidden">Generate with AI</span>
+          <span className="hidden sm:inline">Generate cards with AI</span>
+        </>
+      )}
     </Button>
   );
 

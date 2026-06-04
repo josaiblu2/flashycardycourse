@@ -1,10 +1,9 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect, notFound } from "next/navigation";
-import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { getDeckByIdAndUser } from "@/db/queries/decks";
 import { getCardsByDeckAndUser } from "@/db/queries/cards";
-import { buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { PageBackLink } from "@/components/page-back-link";
 import { AddCardDialog } from "@/components/add-card-dialog";
 import { StudyFlashcards } from "@/components/study-flashcards";
 
@@ -15,6 +14,8 @@ export default async function StudyPage({
 }) {
   const { userId } = await auth();
   if (!userId) redirect("/");
+
+  const t = await getTranslations("study");
 
   const { deckId } = await params;
   const id = parseInt(deckId, 10);
@@ -31,33 +32,33 @@ export default async function StudyPage({
   }));
 
   return (
-    <main className="flex flex-1 flex-col px-6 py-10 max-w-5xl mx-auto w-full">
-      <div className="mb-10">
-        <Link
-          href={`/deck/${id}`}
-          className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "mb-4 -ml-2")}
-        >
-          ← Back to deck
-        </Link>
+    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col px-4 py-6 sm:px-6 sm:py-10">
+      <PageBackLink
+        href={`/deck/${id}`}
+        label={t("backToDeck")}
+        shortLabel={t("deckShort")}
+      />
 
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">
-            Study: {deck.name}
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            {studyCards.length === 0
-              ? "Add cards to this deck before studying"
-              : `Review ${studyCards.length} ${studyCards.length === 1 ? "card" : "cards"}`}
-          </p>
-        </div>
+      <div className="mb-6 min-w-0 sm:mb-8">
+        <p className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+          {t("studyMode")}
+        </p>
+        <h1 className="mt-1 text-2xl font-bold tracking-tight text-foreground break-words sm:text-3xl">
+          {deck.name}
+        </h1>
+        <p className="mt-1 text-muted-foreground">
+          {studyCards.length === 0
+            ? t("addCardsBeforeStudying")
+            : t("reviewCards", { count: studyCards.length })}
+        </p>
       </div>
 
       {studyCards.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-20 text-center">
-          <p className="text-lg font-medium text-foreground">No cards to study</p>
-          <p className="text-muted-foreground mt-1 mb-6">
-            Add flashcards to this deck, then come back to study them
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border px-4 py-16 text-center sm:py-20">
+          <p className="text-lg font-medium text-foreground">
+            {t("noCardsToStudy")}
           </p>
+          <p className="mt-1 text-muted-foreground mb-6">{t("noCardsHint")}</p>
           <AddCardDialog deckId={id} />
         </div>
       ) : (

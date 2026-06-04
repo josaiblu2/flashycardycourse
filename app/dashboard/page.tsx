@@ -1,4 +1,3 @@
-import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
@@ -11,7 +10,7 @@ import {
 } from "@/lib/billing/entitlements";
 import { shouldShowDemoProWaitlistReminder } from "@/lib/billing/demo-pro-reminder";
 import { isBillingEnabled } from "@/lib/billing/config";
-import { resolveProAccess } from "@/lib/billing/pro-access";
+import { getCachedAuth, getCachedProAccess } from "@/lib/auth/cached-auth";
 import { isUserOnWaitlist } from "@/lib/waitlist/status";
 import { CreateDeckAction } from "@/components/create-deck-action";
 import { DemoProWaitlistReminder } from "@/components/demo-pro-waitlist-reminder";
@@ -26,12 +25,14 @@ import {
 } from "@/components/ui/card";
 
 export default async function DashboardPage() {
-  const { userId, has } = await auth();
+  const { userId, has } = await getCachedAuth();
   if (!userId) redirect("/");
 
   const billingEnabled = isBillingEnabled();
-  const proAccess = await resolveProAccess(userId, has);
-  const userDecks = await getDecksByUser(userId);
+  const [proAccess, userDecks] = await Promise.all([
+    getCachedProAccess(),
+    getDecksByUser(userId),
+  ]);
   const canCreateUnlimited = hasUnlimitedDecks(has, proAccess.isDemoPro || proAccess.isAdmin);
   const atDeckLimit = isAtDeckLimit(
     has,
@@ -57,10 +58,10 @@ export default async function DashboardPage() {
     : "Activate free Demo Pro to create unlimited decks and generate flashcards with AI.";
 
   return (
-    <main className="flex flex-1 flex-col px-6 py-10 max-w-5xl mx-auto w-full">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">
+    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col px-4 py-6 sm:px-6 sm:py-10">
+      <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
             Dashboard
           </h1>
           <p className="text-muted-foreground mt-1">
@@ -73,13 +74,15 @@ export default async function DashboardPage() {
             )}
           </p>
         </div>
-        <CreateDeckAction
-          atDeckLimit={atDeckLimit}
-          hasUnlimitedDecks={canCreateUnlimited}
-          billingEnabled={billingEnabled}
-          hasDemoPro={proAccess.isDemoPro}
-          isClerkPro={proAccess.isClerkPro}
-        />
+        <div className="w-full sm:w-auto [&_button]:w-full sm:[&_button]:w-auto">
+          <CreateDeckAction
+            atDeckLimit={atDeckLimit}
+            hasUnlimitedDecks={canCreateUnlimited}
+            billingEnabled={billingEnabled}
+            hasDemoPro={proAccess.isDemoPro}
+            isClerkPro={proAccess.isClerkPro}
+          />
+        </div>
       </div>
 
       {showWaitlistReminder && <DemoProWaitlistReminder />}

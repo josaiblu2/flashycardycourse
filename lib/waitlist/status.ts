@@ -1,12 +1,13 @@
 import "server-only";
 
+import { cache } from "react";
 import {
   getWaitlistLeadByClerkUserId,
   getWaitlistLeadByEmail,
 } from "@/db/queries/waitlist";
 import { clerkClient } from "@clerk/nextjs/server";
 
-export async function isUserOnWaitlist(clerkUserId: string): Promise<boolean> {
+async function resolveIsUserOnWaitlist(clerkUserId: string): Promise<boolean> {
   const leadByUser = await getWaitlistLeadByClerkUserId(clerkUserId);
   if (leadByUser) return true;
 
@@ -20,3 +21,6 @@ export async function isUserOnWaitlist(clerkUserId: string): Promise<boolean> {
 
   return false;
 }
+
+/** Cached per request — layout, dashboard, and resolveProAccess share one Clerk lookup. */
+export const isUserOnWaitlist = cache(resolveIsUserOnWaitlist);

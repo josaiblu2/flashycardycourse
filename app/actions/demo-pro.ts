@@ -45,8 +45,6 @@ export async function activateDemoPro(): Promise<ActivateDemoProResult> {
     await activateDemoProRecord(userId);
 
     revalidatePath("/", "layout");
-    revalidatePath("/dashboard");
-    revalidatePath("/pricing");
 
     return { success: true, alreadyActive: false };
   } catch {

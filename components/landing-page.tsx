@@ -6,6 +6,7 @@ import {
   Sparkles,
   Zap,
 } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 import { AuthButtons } from "@/components/auth-buttons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,75 +20,70 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { FREE_DECK_LIMIT } from "@/lib/billing/entitlements";
 
-const coreFeatures = [
-  {
-    icon: Layers,
-    title: "Organize by deck",
-    description:
-      "Group flashcards into decks for each subject, exam, or language so your study material stays structured and easy to find.",
-  },
-  {
-    icon: BookOpen,
-    title: "Build your cards",
-    description:
-      "Add questions and answers manually, edit anytime, and keep every deck tailored to exactly what you need to learn.",
-  },
-  {
-    icon: Brain,
-    title: "Study interactively",
-    description:
-      "Flip through cards, shuffle the deck, and track progress in a focused study session built for active recall.",
-  },
-];
+export async function LandingPage() {
+  const t = await getTranslations("landing");
 
-const proBenefits = [
-  {
-    icon: Zap,
-    title: "Unlimited decks",
-    description: `Free accounts include up to ${FREE_DECK_LIMIT} decks. Pro removes the cap so you can manage every course, certification, and side project in one place.`,
-  },
-  {
-    icon: Sparkles,
-    title: "AI flashcard generation",
-    description:
-      "Describe a topic and let AI create a full set of flashcards for you — with language, level, and format options to match how you learn.",
-  },
-];
+  const steps = [
+    {
+      step: "1",
+      title: t("step1Title"),
+      description: t("step1Description"),
+    },
+    {
+      step: "2",
+      title: t("step2Title"),
+      description: t("step2Description"),
+    },
+    {
+      step: "3",
+      title: t("step3Title"),
+      description: t("step3Description"),
+    },
+  ];
 
-const steps = [
-  {
-    step: "1",
-    title: "Create a deck",
-    description: "Name your topic and add a short description to set the scope.",
-  },
-  {
-    step: "2",
-    title: "Add flashcards",
-    description: "Write cards yourself or generate them instantly with AI on Pro.",
-  },
-  {
-    step: "3",
-    title: "Start studying",
-    description: "Run through your deck with flip cards, shuffle, and progress tracking.",
-  },
-];
+  const coreFeatures = [
+    {
+      icon: Layers,
+      title: t("featureOrganizeTitle"),
+      description: t("featureOrganizeDescription"),
+    },
+    {
+      icon: BookOpen,
+      title: t("featureBuildTitle"),
+      description: t("featureBuildDescription"),
+    },
+    {
+      icon: Brain,
+      title: t("featureStudyTitle"),
+      description: t("featureStudyDescription"),
+    },
+  ];
 
-export function LandingPage() {
+  const proBenefits = [
+    {
+      icon: Zap,
+      title: t("proUnlimitedTitle"),
+      description: t("proUnlimitedDescription", { deckLimit: FREE_DECK_LIMIT }),
+    },
+    {
+      icon: Sparkles,
+      title: t("proAiTitle"),
+      description: t("proAiDescription"),
+    },
+  ];
+
   return (
     <main className="flex flex-1 flex-col">
-      {/* Hero */}
       <section className="flex flex-col items-center px-6 py-16 text-center sm:py-24">
         <Badge variant="secondary" className="mb-4">
-          Flashcard learning, simplified
+          {t("badge")}
         </Badge>
         <h1 className="max-w-3xl text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl md:text-6xl">
-          Master any subject with{" "}
-          <span className="text-primary">Flashy Cardy</span>
+          {t("heroTitleBefore")}{" "}
+          <span className="text-primary">{t("heroBrand")}</span>
         </h1>
         <p className="mt-5 max-w-2xl text-lg text-muted-foreground sm:text-xl">
-          Flashy Cardy is your personal flashcard platform. Create decks, build
-          cards, and study with active recall — whether you&apos;re prepping for
-          exams, learning a language, or picking up a new skill.
+          {t("heroDescription")}
         </p>
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <AuthButtons />
@@ -97,21 +93,20 @@ export function LandingPage() {
             nativeButton={false}
             render={<Link href="/pricing" />}
           >
-            View Pro plans
+            {t("viewProPlans")}
           </Button>
         </div>
       </section>
 
       <Separator />
 
-      {/* How it works */}
       <section className="mx-auto w-full max-w-5xl px-6 py-16">
         <div className="mb-10 text-center">
           <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-            How it works
+            {t("howItWorksTitle")}
           </h2>
           <p className="mt-2 text-muted-foreground">
-            From blank deck to study session in three steps.
+            {t("howItWorksSubtitle")}
           </p>
         </div>
         <div className="grid gap-6 sm:grid-cols-3">
@@ -131,14 +126,13 @@ export function LandingPage() {
 
       <Separator />
 
-      {/* Core features */}
       <section className="mx-auto w-full max-w-5xl px-6 py-16">
         <div className="mb-10 text-center">
           <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-            Everything you need to learn
+            {t("featuresTitle")}
           </h2>
           <p className="mt-2 text-muted-foreground">
-            A focused toolkit for creating and reviewing flashcards.
+            {t("featuresSubtitle")}
           </p>
         </div>
         <div className="grid gap-6 sm:grid-cols-3">
@@ -156,19 +150,17 @@ export function LandingPage() {
 
       <Separator />
 
-      {/* Pro benefits */}
       <section className="mx-auto w-full max-w-5xl px-6 py-16">
         <div className="mb-10 text-center">
           <Badge className="mb-3" data-icon="inline-start">
             <Sparkles />
-            Pro
+            {t("proBadge")}
           </Badge>
           <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-            Go further with Pro
+            {t("proTitle")}
           </h2>
-          <p className="mt-2 max-w-2xl mx-auto text-muted-foreground">
-            Start free with up to {FREE_DECK_LIMIT} decks. Upgrade when you need
-            more room and AI-powered card creation.
+          <p className="mx-auto mt-2 max-w-2xl text-muted-foreground">
+            {t("proSubtitle", { deckLimit: FREE_DECK_LIMIT })}
           </p>
         </div>
 
@@ -191,11 +183,10 @@ export function LandingPage() {
           <CardContent className="flex flex-col items-center gap-4 py-8 text-center sm:flex-row sm:justify-between sm:text-left">
             <div>
               <p className="font-semibold text-foreground">
-                Free vs Pro at a glance
+                {t("comparisonTitle")}
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Free: up to {FREE_DECK_LIMIT} decks, manual cards only. Pro:
-                unlimited decks, and AI generation.
+                {t("comparisonDescription", { deckLimit: FREE_DECK_LIMIT })}
               </p>
             </div>
             <Button
@@ -205,21 +196,18 @@ export function LandingPage() {
               data-icon="inline-start"
             >
               <Sparkles />
-              See pricing
+              {t("seePricing")}
             </Button>
           </CardContent>
         </Card>
       </section>
 
-      {/* Final CTA */}
       <section className="border-t border-border bg-muted/30 px-6 py-16">
         <div className="mx-auto flex max-w-2xl flex-col items-center text-center">
           <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-            Ready to start learning?
+            {t("ctaTitle")}
           </h2>
-          <p className="mt-2 text-muted-foreground">
-            Create a free account and build your first deck in minutes.
-          </p>
+          <p className="mt-2 text-muted-foreground">{t("ctaDescription")}</p>
           <div className="mt-6">
             <AuthButtons />
           </div>

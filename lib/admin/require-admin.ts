@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 
 const ADMIN_ROLE = "admin";
@@ -28,10 +29,13 @@ async function hasAdminMetadata(userId: string): Promise<boolean> {
   return user.publicMetadata?.role === ADMIN_ROLE;
 }
 
-export async function isAdminUser(userId: string): Promise<boolean> {
+async function resolveIsAdminUser(userId: string): Promise<boolean> {
   if (isAllowlistedAdmin(userId)) return true;
   return hasAdminMetadata(userId);
 }
+
+/** Cached per request — avoids duplicate Clerk API calls from layout + pages. */
+export const isAdminUser = cache(resolveIsAdminUser);
 
 export async function requireAdmin(): Promise<string> {
   const { userId } = await auth();

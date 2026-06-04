@@ -1,16 +1,20 @@
 import "server-only";
 
+import { cache } from "react";
 import { db } from "@/db";
 import { demoProActivations } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
-export async function getDemoProActivationByUser(clerkUserId: string) {
+async function fetchDemoProActivationByUser(clerkUserId: string) {
   const [row] = await db
     .select()
     .from(demoProActivations)
     .where(eq(demoProActivations.clerkUserId, clerkUserId));
   return row ?? null;
 }
+
+/** Cached per request — pro-access and dashboard share one DB read. */
+export const getDemoProActivationByUser = cache(fetchDemoProActivationByUser);
 
 export async function activateDemoProRecord(clerkUserId: string) {
   const existing = await getDemoProActivationByUser(clerkUserId);

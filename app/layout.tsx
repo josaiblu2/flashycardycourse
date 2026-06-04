@@ -2,11 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Poppins } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
-import { auth } from "@clerk/nextjs/server";
 import { dark } from "@clerk/ui/themes";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import { HeaderAuth } from "@/components/header-auth";
+import { LanguageSelector } from "@/components/language-selector";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { resolveProAccess } from "@/lib/billing/pro-access";
+import { getCachedProAccess } from "@/lib/auth/cached-auth";
 import "./globals.css";
 
 const poppins = Poppins({
@@ -17,56 +19,68 @@ const poppins = Poppins({
   adjustFontFallback: false,
 });
 
-export const metadata: Metadata = {
-  title: "Flashy Cardy Course",
-  description:
-    "Master any subject with our interactive flashcard learning system.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("metadata");
+
+  return {
+    title: t("title"),
+    description: t("description"),
+  };
+}
 
 export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const { userId, has } = await auth();
-  const proAccess = userId
-    ? await resolveProAccess(userId, has)
-    : {
-        hasPro: false,
-        isClerkPro: false,
-        isDemoPro: false,
-        isAdmin: false,
-        source: "free" as const,
-      };
+  const [locale, messages, t, proAccess] = await Promise.all([
+    getLocale(),
+    getMessages(),
+    getTranslations("common"),
+    getCachedProAccess(),
+  ]);
+
+  const clerkLocalization =
+    locale === "es"
+      ? (await import("@clerk/localizations/es-ES")).esES
+      : (await import("@clerk/localizations/en-US")).enUS;
 
   return (
     <html
-      lang="en"
+      lang={locale}
+      suppressHydrationWarning
       className={`dark ${poppins.variable} ${poppins.className} h-full font-sans antialiased`}
     >
-      <body className="min-h-full flex flex-col font-sans">
+      <body
+        suppressHydrationWarning
+        className="min-h-full flex flex-col font-sans"
+      >
         <ClerkProvider
           appearance={{ theme: dark }}
+          localization={clerkLocalization}
           signInFallbackRedirectUrl="/dashboard"
           signUpFallbackRedirectUrl="/dashboard"
         >
-          <TooltipProvider>
-            <header className="flex items-center justify-between gap-4 bg-card border-b border-border px-6 py-4">
-              <Link
-                href="/"
-                className="text-lg font-bold text-card-foreground hover:text-foreground transition-colors"
-              >
-                Flashy Cardy Course
-              </Link>
-              <div className="flex items-center gap-3">
-                <HeaderAuth
-                  isClerkPro={proAccess.isClerkPro}
-                  isDemoPro={proAccess.isDemoPro}
-                />
-              </div>
-            </header>
-            {children}
-          </TooltipProvider>
+          <NextIntlClientProvider locale={locale} messages={messages}>
+            <TooltipProvider>
+              <header className="flex items-center justify-between gap-2 border-b border-border bg-card px-4 py-3 sm:gap-4 sm:px-6 sm:py-4">
+                <Link
+                  href="/"
+                  className="min-w-0 truncate text-base font-bold text-card-foreground transition-colors hover:text-foreground sm:text-lg"
+                >
+                  {t("appName")}
+                </Link>
+                <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+                  <LanguageSelector />
+                  <HeaderAuth
+                    isClerkPro={proAccess.isClerkPro}
+                    isDemoPro={proAccess.isDemoPro}
+                  />
+                </div>
+              </header>
+              {children}
+            </TooltipProvider>
+          </NextIntlClientProvider>
         </ClerkProvider>
       </body>
     </html>
